@@ -1,0 +1,21 @@
+[
+  {
+    "concurrent_users": 50,
+    "total_requests": 164,
+    "successful_requests": 30,
+    "failed_requests": 134,
+    "total_duration": 24.474918603897095,
+    "avg_response_time": 5.4100478728612265,
+    "min_response_time": 0.20684409141540527,
+    "max_response_time": 10.365352630615234,
+    "p50_response_time": 5.3379127979278564,
+    "p95_response_time": 10.143656969070435,
+    "p99_response_time": 10.365352630615234,
+    "requests_per_second": 6.700737299853025,
+    "error_rate": 81.70731707317073,
+    "errors_by_type": {
+      "HTTP_500": 134
+    },
+    "timestamp": "2026-01-25T02:03:55.388351"
+  }
+]

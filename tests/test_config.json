@@ -1,0 +1,10 @@
+{
+  "api_url": "https://0wryhzy1j5.execute-api.us-east-1.amazonaws.com/prod",
+  "tenant_id": "131c8c19-2261-4c7b-9487-ee498e4e0e73",
+  "api_key": "aob_RCQ2qWUq4Lw53OCenGXaOwIKmpCk1f9kx15EdNXEILo",
+  "concurrent_users": [10, 50, 100, 200, 300],
+  "messages_per_user": 6,
+  "request_timeout": 60,
+  "delay_between_messages": 1.5,
+  "delay_between_tests": 10
+}

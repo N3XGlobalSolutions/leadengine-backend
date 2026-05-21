@@ -1,0 +1,668 @@
+
+=== SCANNING FOR ALL USER RECORDS ===
+
+Found potential user record:
+  PK: USER#f92f03e1-0280-4303-a81d-2b4f15beaaf1
+  SK: PROFILE
+  Email: aob_admin_b4c666@test.com
+  Full Name: AOB Admin
+  Role: aob_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#d1ecdbad-44cc-4815-969c-c9d907d84f6e
+  SK: PROFILE
+  Email: test_aob_user@example.com
+  Full Name: Test User
+  Role: aob_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#0811c964-ea14-4435-a804-3adc29c89f35
+  SK: PROFILE
+  Email: admin_fb6a91@test.com
+  Full Name: Super Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#4b825c07-a99b-4fd3-813b-d5868964d4a9
+  SK: PROFILE
+  Email: admin_test_1766485491@dynamodb.com
+  Full Name: DynamoDB Test Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#dd0c6027-aaf1-4657-a1d6-f7a815af1476
+  SK: PROFILE
+  Email: admin_e81184@test.com
+  Full Name: Super Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: LEAD#fd066b18-6ca1-4740-9b91-af9b4e815ca4
+  SK: PROFILE
+  Email: test@test.com
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#315c6084-0962-4e43-8bd9-127f96f254bd
+  SK: PROFILE
+  Email: hacker_9c8bf0@evil.com
+  Full Name: Bad Actor
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#43e590c1-2e6f-4b52-95f3-cbe3e951a0d1
+  SK: PROFILE
+  Email: test_api_vref_admin@example.com
+  Full Name: Test Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: LEAD#5b5aabc1-ce45-4535-8170-e3e95f48aac1
+  SK: PROFILE
+  Email: None
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#3e4adf3d-48b4-4a43-b7da-16578b4b9c18
+  SK: PROFILE
+  Email: admin_test_1766510649@dynamodb.com
+  Full Name: DynamoDB Test Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#43eefbd2-53e0-4095-9ee1-3cf16bb22638
+  SK: PROFILE
+  Email: test_api_vref_admin@example.com
+  Full Name: Test Admin
+  Role: platform_admin
+  Is Deleted: True
+  Is Active: False
+
+Found potential user record:
+  PK: LEAD#268a248e-d6ab-4114-9385-976375b78f64
+  SK: PROFILE
+  Email: john@example.com
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#2d5abd10-0498-4ae4-b5fe-1d9156fd34eb
+  SK: PROFILE
+  Email: user_test_1766513707@dynamodb.com
+  Full Name: DynamoDB Test User
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#0213bcfc-9d9e-4e32-800f-dfe8e28e46f7
+  SK: PROFILE
+  Email: admin_f7b109@test.com
+  Full Name: Super Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#342aff3f-8b65-4163-90fe-45fbe8f81bdb
+  SK: PROFILE
+  Email: admin_test_1766503702@dynamodb.com
+  Full Name: DynamoDB Test Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#7f7365ee-bc2c-4140-a44e-1d6cafe9579c
+  SK: PROFILE
+  Email: test_aob_user@example.com
+  Full Name: Test User
+  Role: aob_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: LEAD#3fa74c99-098e-4d0e-9db2-60b3cd22f9bf
+  SK: PROFILE
+  Email: john@example.com
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#936bf792-d699-4e21-8954-80c91c3d65aa
+  SK: PROFILE
+  Email: test_user_1767033592@example.com
+  Full Name: Test User
+  Role: aob_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#df7aa531-7b84-457f-af44-bb5e0dbedc8a
+  SK: PROFILE
+  Email: admin_test_1766485157@dynamodb.com
+  Full Name: DynamoDB Test Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#a5a6f631-7876-4fe2-95f7-4168b6333d01
+  SK: PROFILE
+  Email: real_data_test_admin@example.com
+  Full Name: Real Data Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: LEAD#None
+  SK: PROFILE
+  Email: test@test.com
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#c06d3ad4-f9e0-4888-aed2-da877db5521d
+  SK: PROFILE
+  Email: realtest@aob.com
+  Full Name: Real Test
+  Role: aob_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#23ba9bc4-f57e-4daa-b5fb-b8678f1264d2
+  SK: PROFILE
+  Email: test_admin_63706590@example.com
+  Full Name: Test Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#19e47a4d-89ee-48e4-82a1-b8df15d6e2d0
+  SK: PROFILE
+  Email: manager_d3f93f@testcorp.com
+  Full Name: Corp Manager
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#9ae11159-22fa-4c01-8adf-daecf9984f7c
+  SK: PROFILE
+  Email: test_aob_user@example.com
+  Full Name: Test User
+  Role: aob_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#ae97f826-895c-4870-a82f-78ffcdaed4d4
+  SK: PROFILE
+  Email: manager_e81184@testcorp.com
+  Full Name: Corp Manager
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#d40c1af2-f4f4-4fde-aa03-fd1d216e56d2
+  SK: PROFILE
+  Email: admin_d3f93f@test.com
+  Full Name: Super Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#b521e638-3d3e-4679-96d8-090d8964c878
+  SK: PROFILE
+  Email: admin_52259e@test.com
+  Full Name: Super Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: LEAD#47171129-fd97-4b61-8eed-62068bdea055
+  SK: PROFILE
+  Email: jane.smith@example.com
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#4f902c48-2f2e-415f-a938-91dcfe2f3243
+  SK: PROFILE
+  Email: aob_admin_c4d492@test.com
+  Full Name: AOB Admin
+  Role: aob_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#025bc767-d4bc-41fd-87cb-f253e31694d3
+  SK: PROFILE
+  Email: admin@testcompany.com
+  Full Name: Client Admin
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#75464bb2-21b3-48f2-b743-501fe9679b5e
+  SK: PROFILE
+  Email: p_admin_46cfbb@test.com
+  Full Name: Platform Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#35ad72a0-c7a3-4a67-bf55-47711cabcfca
+  SK: PROFILE
+  Email: admin_0446b4@test.com
+  Full Name: Super Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#c27edf13-83c3-4d72-bf83-c9aa6e1e778d
+  SK: PROFILE
+  Email: n3xglobalsolutions@gmail.com
+  Full Name: N3X
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#4177f558-d890-4bad-88cf-c66b0b5efa67
+  SK: PROFILE
+  Email: c_admin_b4c666@test.com
+  Full Name: Client Admin
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#d20372af-de86-40f9-8bcf-6003f38d3aaf
+  SK: PROFILE
+  Email: manager_3ab648@testcorp.com
+  Full Name: Corp Manager
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#a225fbfd-f4a7-4937-b610-cbba0563379a
+  SK: PROFILE
+  Email: admin@platform.com
+  Full Name: Platform Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#525e7606-ccaa-49a9-822d-65828c3a02c0
+  SK: PROFILE
+  Email: hacker_e81184@evil.com
+  Full Name: Bad Actor
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#325f2173-5f0e-428c-85e0-04a31a36a3bb
+  SK: PROFILE
+  Email: p_admin_b4c666@test.com
+  Full Name: Platform Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#79db211f-8033-4244-b6f4-98693dacaa7e
+  SK: PROFILE
+  Email: test_api_vref_admin@example.com
+  Full Name: Test Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#b7fb13ca-50be-4178-af47-b2630296e973
+  SK: PROFILE
+  Email: admin_test_1766510457@dynamodb.com
+  Full Name: DynamoDB Test Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#52b984ad-c74c-4d7e-ae75-1c8ccf439bd9
+  SK: PROFILE
+  Email: admin@qbot.com
+  Full Name: Platform Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: LEAD#f6f74b24-05f9-4154-a443-c7ae349cec43
+  SK: PROFILE
+  Email: john@example.com
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#4ad76b5c-dc63-432e-a5b0-927fefab0bd7
+  SK: PROFILE
+  Email: user_test_1766512993@dynamodb.com
+  Full Name: DynamoDB Test User
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#0f895a76-45bd-4967-a98f-66dd2acf6d3b
+  SK: PROFILE
+  Email: test_user_1767033559@example.com
+  Full Name: Test User
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: LEAD#9a50fcc1-9a25-4d34-a19b-42c755bf1311
+  SK: PROFILE
+  Email: john@example.com
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#573a3126-04c6-454a-8aec-145d9c01cfe1
+  SK: PROFILE
+  Email: agent@sky.com
+  Full Name: Sky Habitat
+  Role: client_agent
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#b4f73f0f-509b-4865-843e-c8a4f77debad
+  SK: PROFILE
+  Email: user_test_1766512748@dynamodb.com
+  Full Name: DynamoDB Test User
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#b14d1cdb-3871-4635-8d66-d7d245c998f3
+  SK: PROFILE
+  Email: test_aob_user@example.com
+  Full Name: Test User
+  Role: aob_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#e7cdc385-5112-446b-b949-ae6eca9ecfc7
+  SK: PROFILE
+  Email: user_test_1766510458@dynamodb.com
+  Full Name: DynamoDB Test User
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#13163ebf-e303-4b2d-ab93-34710e5938f3
+  SK: PROFILE
+  Email: test_api_vref_admin@example.com
+  Full Name: Test Admin
+  Role: platform_admin
+  Is Deleted: True
+  Is Active: True
+
+Found potential user record:
+  PK: LEAD#dd987643-9c79-4194-972d-75abeeead82d
+  SK: PROFILE
+  Email: john@example.com
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#cec49f37-d446-439f-8b9b-67b7bad2df19
+  SK: PROFILE
+  Email: admin_8e2bb2@test.com
+  Full Name: Super Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#1dc4f959-ee6b-4b33-a96e-d045adc26910
+  SK: PROFILE
+  Email: admin_bede1e@test.com
+  Full Name: Super Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#daf971ee-0af3-40fe-95ed-1b45e8179f2a
+  SK: PROFILE
+  Email: test_aob_user@example.com
+  Full Name: Test User
+  Role: aob_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#c56d26f4-4229-4fc1-a9d5-12746d840e59
+  SK: PROFILE
+  Email: admin_test_1766510157@dynamodb.com
+  Full Name: DynamoDB Test Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: LEAD#de6b0aef-2315-44f5-b77b-d3c76b6de1ff
+  SK: PROFILE
+  Email: john@example.com
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: LEAD#e31169f5-d100-4557-b9b4-2c52e5ffa02a
+  SK: PROFILE
+  Email: sailesh78987@fgf.dfv
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: LEAD#10c05d03-ca72-45cf-874d-2183e8be9ce3
+  SK: PROFILE
+  Email: test@example.com
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#88c84b3e-69de-469f-b17b-1acd23339beb
+  SK: PROFILE
+  Email: test_aob_user@example.com
+  Full Name: Test User
+  Role: aob_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#6845e476-41f3-499e-b698-9fae5857aa07
+  SK: PROFILE
+  Email: test_1766391556@example.com
+  Full Name: Test User
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#bffb47b3-88a8-49e7-aa9c-0284a15deecf
+  SK: PROFILE
+  Email: admin@skillbridge.com
+  Full Name: Skill Bridge
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: LEAD#95f286fb-b40b-49e0-a245-b0a50b14711a
+  SK: PROFILE
+  Email: sailesh67876@gmial.com
+  Full Name: N/A
+  Role: N/A
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#ce733ec3-1f49-4c06-8291-55762cbb10db
+  SK: PROFILE
+  Email: test_1766347882@example.com
+  Full Name: Test User
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#05ed88eb-7017-42ef-b93c-af5fe9dd52f2
+  SK: PROFILE
+  Email: admin_9c8bf0@test.com
+  Full Name: Super Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#3950735c-7fc0-47d3-be82-d3360cea4ca5
+  SK: PROFILE
+  Email: test_admin_ec84bea2@example.com
+  Full Name: Test Admin
+  Role: platform_admin
+  Is Deleted: False
+  Is Active: True
+
+Found potential user record:
+  PK: USER#9aac879c-f941-46cb-9d76-c6420757b611
+  SK: PROFILE
+  Email: quickpro@gmail.com
+  Full Name: Quickpro
+  Role: client_admin
+  Is Deleted: False
+  Is Active: True
+
+
+=== SUMMARY ===
+Total items in table: 2353
+Potential user records found: 67
+
+=== CHECKING USER# PREFIX WITH PROFILE SK ===
+
+Users with PK=USER#* and SK=PROFILE: 54
+  - aob_admin_b4c666@test.com (AOB Admin)
+  - test_aob_user@example.com (Test User)
+  - admin_fb6a91@test.com (Super Admin)
+  - admin_test_1766485491@dynamodb.com (DynamoDB Test Admin)
+  - admin_e81184@test.com (Super Admin)
+  - hacker_9c8bf0@evil.com (Bad Actor)
+  - test_api_vref_admin@example.com (Test Admin)
+  - admin_test_1766510649@dynamodb.com (DynamoDB Test Admin)
+  - test_api_vref_admin@example.com (Test Admin)
+  - user_test_1766513707@dynamodb.com (DynamoDB Test User)
+  - admin_f7b109@test.com (Super Admin)
+  - admin_test_1766503702@dynamodb.com (DynamoDB Test Admin)
+  - test_aob_user@example.com (Test User)
+  - test_user_1767033592@example.com (Test User)
+  - admin_test_1766485157@dynamodb.com (DynamoDB Test Admin)
+  - real_data_test_admin@example.com (Real Data Admin)
+  - realtest@aob.com (Real Test)
+  - test_admin_63706590@example.com (Test Admin)
+  - manager_d3f93f@testcorp.com (Corp Manager)
+  - test_aob_user@example.com (Test User)
+  - manager_e81184@testcorp.com (Corp Manager)
+  - admin_d3f93f@test.com (Super Admin)
+  - admin_52259e@test.com (Super Admin)
+  - aob_admin_c4d492@test.com (AOB Admin)
+  - admin@testcompany.com (Client Admin)
+  - p_admin_46cfbb@test.com (Platform Admin)
+  - admin_0446b4@test.com (Super Admin)
+  - n3xglobalsolutions@gmail.com (N3X)
+  - c_admin_b4c666@test.com (Client Admin)
+  - manager_3ab648@testcorp.com (Corp Manager)
+  - admin@platform.com (Platform Admin)
+  - hacker_e81184@evil.com (Bad Actor)
+  - p_admin_b4c666@test.com (Platform Admin)
+  - test_api_vref_admin@example.com (Test Admin)
+  - admin_test_1766510457@dynamodb.com (DynamoDB Test Admin)
+  - admin@qbot.com (Platform Admin)
+  - user_test_1766512993@dynamodb.com (DynamoDB Test User)
+  - test_user_1767033559@example.com (Test User)
+  - agent@sky.com (Sky Habitat)
+  - user_test_1766512748@dynamodb.com (DynamoDB Test User)
+  - test_aob_user@example.com (Test User)
+  - user_test_1766510458@dynamodb.com (DynamoDB Test User)
+  - test_api_vref_admin@example.com (Test Admin)
+  - admin_8e2bb2@test.com (Super Admin)
+  - admin_bede1e@test.com (Super Admin)
+  - test_aob_user@example.com (Test User)
+  - admin_test_1766510157@dynamodb.com (DynamoDB Test Admin)
+  - test_aob_user@example.com (Test User)
+  - test_1766391556@example.com (Test User)
+  - admin@skillbridge.com (Skill Bridge)
+  - test_1766347882@example.com (Test User)
+  - admin_9c8bf0@test.com (Super Admin)
+  - test_admin_ec84bea2@example.com (Test Admin)
+  - quickpro@gmail.com (Quickpro)

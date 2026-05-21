@@ -1,0 +1,54 @@
+﻿commit a7eeb28c5a5653ff22a390b48270a35f6f5a40b0
+Author: shriharshan <shriharshan123@gmail.com>
+Date:   Tue Mar 31 23:43:01 2026 +0530
+
+    S3 Mapping feature
+
+M	app/models/conversation.py
+M	app/models/tenant.py
+M	app/routes/v1/chat.py
+A	app/services/chat/s3_mapping_state_machine.py
+M	app/services/conversation/conversation_service_dynamodb.py
+
+commit c7361ff4ff89c53b9835393cbcfd8680ebddf617
+Author: shriharshan <shriharshan123@gmail.com>
+Date:   Sun Mar 29 15:39:09 2026 +0530
+
+    Fixed S3 Max feature
+
+M	app/services/user/user_service_dynamodb.py
+A	docs/Business Loan Qualification Questionnaire.docx
+D	qbot-lambda-dev.zip
+
+commit 20fa0f23fca85533601f029d0b601e0309d0a3ec
+Author: shriharshan <shriharshan123@gmail.com>
+Date:   Fri Mar 27 19:03:09 2026 +0530
+
+    Fixed S3 Max feature
+
+M	app/services/ai/rag_service.py
+M	app/services/chat/agents/graph_state.py
+M	app/services/chat/agents/qualification_evaluator_agent.py
+M	app/services/chat/agents/router_agent.py
+M	app/services/chat/s3_max_graph.py
+M	app/services/chat/s3_max_state_machine.py
+M	create_lambda_package.sh
+M	qbot-lambda-dev.zip
+
+commit 80faf4381e8d60ab98dc867896412303ab8c635e
+Author: shriharshan <shriharshan123@gmail.com>
+Date:   Tue Mar 24 01:13:14 2026 +0530
+
+    Fixed S3 Max feature
+
+M	app/services/chat/agents/graph_state.py
+M	app/services/chat/s3_max_graph.py
+M	app/services/chat/s3_max_state_machine.py
+
+commit e1e2aa2bab7816cdc5c514dbb3af604d72c5c709
+Author: shriharshan <shriharshan123@gmail.com>
+Date:   Tue Mar 24 01:04:35 2026 +0530
+
+    Fixed S3 Max feature
+
+M	app/services/chat/s3_max_graph.py
