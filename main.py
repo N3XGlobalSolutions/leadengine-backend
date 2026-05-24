@@ -66,9 +66,6 @@ app = FastAPI(
 # Setup custom exception handlers
 setup_exception_handlers(app)
 
-# Add request context middleware (for request ID tracking)
-app.add_middleware(RequestContextMiddleware)
-
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -77,6 +74,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add request context middleware (for request ID tracking)
+app.add_middleware(RequestContextMiddleware)
 
 # Include routers
 app.include_router(auth.router)

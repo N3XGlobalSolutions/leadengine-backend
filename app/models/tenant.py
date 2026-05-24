@@ -105,6 +105,17 @@ class TenantConfig(BaseModel):
     lead_trigger_count: int = 3  # Messages before lead capture starts
     api_key: Optional[str] = None  # API key for widget authentication
     company_context: str = ""  # Company info for better LLM context
+
+    #Clients domain for Widget Integration
+    client_domain: Optional[str] = Field(
+        default=None,
+        description="Primary client website domain"
+    )
+    #Processed Clients Domain origins
+    allowed_origins: List[str] = Field(
+        default_factory=list,
+        description="Allowed origins for widget requests"
+    )
     
     # Lead Qualification Criteria
     lead_qualification_criteria: Optional[str] = Field(
@@ -123,6 +134,25 @@ class TenantConfig(BaseModel):
         default=None,
         description="Structured question map with signal scoring. Used by S3_MAPPING plan. Max 30 deterministic questions. Each question may optionally carry an inline table."
     )
+
+    @field_validator("allowed_origins")
+    @classmethod
+    def validate_allowed_origins(cls, v: List[str]) -> List[str]:
+
+        normalized = []
+
+        for origin in v:
+
+            origin = origin.lower().rstrip("/")
+
+            if not origin.startswith(("http://", "https://")):
+                raise ValueError(
+                    "Origins must start with http:// or https://"
+                )
+
+            normalized.append(origin)
+
+        return normalized
 
     @field_validator("question_map")
     @classmethod

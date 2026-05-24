@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 import secrets
 from app.core.redis_client import redis_client
+from app.utils.Origin_utils import generate_allowed_origins
 from app.core import config
 from app.core.dynamodb import (
     get_item,
@@ -64,6 +65,11 @@ class TenantServiceDynamoDB:
         status = tenant_data.status or TenantStatus.ONBOARDING
         # Sync is_active
         is_active = status != TenantStatus.INACTIVE
+
+        if config.client_domain:
+            config.allowed_origins = generate_allowed_origins(
+                config.client_domain
+            )
 
         tenant_item = {
             # Primary keys
@@ -487,13 +493,41 @@ class TenantServiceDynamoDB:
                 new_config_val = update_dict["config"]
                 # It's already a dict if we used mode='json' above, but to be safe/consistent:
                 if hasattr(new_config_val, "model_dump"):
-                    new_config_dict = new_config_val.model_dump(exclude_unset=True, mode='json')
+                    new_config_dict = new_config_val.model_dump(
+                        exclude_unset=True,
+                        mode='json'
+                    )
                 else:
                     new_config_dict = new_config_val
+
+                # Auto-generate allowed origins from client domain
+                client_domain = new_config_dict.get("client_domain")
+
+                if client_domain:
+                    generated_origins = generate_allowed_origins(client_domain)
+
+                    existing_origins = [
+                        origin.lower().rstrip("/")
+                        for origin in new_config_dict.get(
+                            "allowed_origins",
+                            []
+                        )
+                    ]
+
+                    new_config_dict["allowed_origins"] = list(
+                        set(existing_origins + generated_origins)
+                    )
                 
                 # Preserve api_key
                 if "api_key" in current_config and "api_key" not in new_config_dict:
                     new_config_dict["api_key"] = current_config["api_key"]
+
+                    # Revalidate config after modifications
+                validated_config = TenantConfig(**new_config_dict)
+
+                new_config_dict = validated_config.model_dump(
+                        mode="json"
+                    )
 
                 # Strip None values from nested config so DynamoDB never
                 # receives Python None inside Map attributes (optional fields
