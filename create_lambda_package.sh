@@ -16,9 +16,12 @@ rm -f qbot-lambda.zip
 mkdir -p lambda_package
 cd lambda_package
 
-echo "📦 Installing dependencies using UV..."
+echo "📦 Installing dependencies using UV (from pyproject.toml)..."
 
-# UV doesn't support -t flag, so we install to a temp venv then copy
+# Export requirements from pyproject.toml (excludes dev deps, resolves all pins)
+uv export --no-dev --no-hashes -o /tmp/lambda-requirements.txt
+
+# Create a temporary virtual environment with Python 3.12 (matches Lambda)
 cd ..
 mkdir -p .lambda_venv
 cd .lambda_venv
@@ -28,30 +31,8 @@ cd .lambda_venv
 uv venv .venv_lambda --python 3.12
 source .venv_lambda/bin/activate
 
-# Install all dependencies
-uv pip install \
-  fastapi \
-  mangum \
-  boto3 \
-  qdrant-client \
-  pydantic[email] \
-  pydantic-settings \
-  python-jose[cryptography] \
-  passlib[bcrypt] \
-  bcrypt \
-  python-multipart \
-  beautifulsoup4 \
-  pypdf2 \
-  python-docx \
-  langchain \
-  langchain-text-splitters \
-  langgraph \
-  requests \
-  slowapi \
-  argon2-cffi \
-  lxml \
-  email-validator \
-  anthropic
+# Install all dependencies from the lock-resolved requirements
+uv pip install -r /tmp/lambda-requirements.txt
 
 # Copy site-packages to lambda_package
 echo "📁 Copying dependencies to package directory..."
