@@ -18,18 +18,23 @@ cd lambda_package
 
 echo "📦 Installing dependencies using UV (from pyproject.toml)..."
 
-# Read direct dependencies from pyproject.toml (avoids massive transitive dep tree from uv export)
+# Curated runtime-only package list — dynamically excludes heavy packages
+# not actually imported by the app (google-generativeai, motor, pymongo)
+# which would push the zip over Lambda's 250MB unzipped limit.
 python3 -c "
-import tomllib, sys
+import tomllib
 with open('../pyproject.toml', 'rb') as f:
     data = tomllib.load(f)
+# Packages NOT needed at Lambda runtime (unused in app/ code or type-stubs only)
+EXCLUDE = {
+    'google-generativeai', 'motor', 'pymongo',
+    'boto3-stubs', 'botocore-stubs',
+}
 deps = data['project']['dependencies']
-# Exclude type-stub packages (not needed at runtime)
-runtime_deps = [d for d in deps if not any(x in d.lower() for x in ('stubs', 'types-', 'mypy-boto3'))]
-print('\n'.join(runtime_deps))
+runtime = [d for d in deps if not any(x in d.lower() for x in EXCLUDE)]
+print('\n'.join(runtime))
 " > /tmp/lambda-requirements.txt
 echo "📋 Packages to install: $(wc -l < /tmp/lambda-requirements.txt)"
-
 
 
 # Create a temporary virtual environment with Python 3.12 (matches Lambda)
