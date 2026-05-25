@@ -18,8 +18,11 @@ cd lambda_package
 
 echo "📦 Installing dependencies using UV (from pyproject.toml)..."
 
-# Export requirements from pyproject.toml (excludes dev deps, resolves all pins)
-uv export --no-dev --no-hashes -o /tmp/lambda-requirements.txt
+# Export requirements from pyproject.toml, excluding type-stub packages
+# (boto3-stubs, botocore-stubs, types-* are type-checking only — not needed at runtime)
+uv export --no-dev --no-hashes | grep -vE "^(boto3-stubs|botocore-stubs|mypy-boto3-|types-|typing[-_])" > /tmp/lambda-requirements.txt
+echo "📋 Packages to install: $(wc -l < /tmp/lambda-requirements.txt)"
+
 
 # Create a temporary virtual environment with Python 3.12 (matches Lambda)
 cd ..
