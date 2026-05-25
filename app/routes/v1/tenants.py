@@ -67,12 +67,16 @@ def getPaginated_tenants_summary(
         cursor=parsed_cursor
     )
 
-@router.get("/tenants/summary", response_model=List[TenantSummary])
-def get_tenant_summaries(
+@router.get("/tenants/summary",
+            response_model=List[TenantSummary],
+            dependencies = [Depends(require_role([UserRole.PLATFORM_ADMIN, UserRole.PLATFORM_OPERATOR,
+                                                  UserRole.SALES_TEAM]))],
+)
+async def get_tenant_summaries(
     skip: int = 0,
-    limit: int = 100
+    limit: int = Query(500, le=500),
 ):
-    return tenant_service.list_tenant_summaries(skip, limit)
+    return tenant_service.list_tenant_summaries(skip=skip, limit=limit)
 
 @router.get("/{tenant_id}", response_model=Tenant)
 async def get_tenant(

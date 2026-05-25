@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 import secrets
-from app.core.redis_client import redis_client
+#from app.core.redis_client import redis_client
 from app.utils.Origin_utils import generate_allowed_origins
 from app.core import config
 from app.core.dynamodb import (
@@ -96,12 +96,12 @@ class TenantServiceDynamoDB:
 
         put_item(tenant_item)
 
-        keys = redis_client.keys("tenant_summaries:*")
+        #keys = redis_client.keys("tenant_summaries:*")
 
-        if keys:
-            redis_client.delete(*keys)
+       # if keys:
+            #redis_client.delete(*keys)
 
-        print("TENANT CACHE CLEARED")
+        #print("TENANT CACHE CLEARED")
         # Update analytics counters
         try:
             from app.services import analytics_service, USE_DYNAMODB
@@ -196,7 +196,7 @@ class TenantServiceDynamoDB:
 
         return tenant
 
-    def invalidate_cache(self, tenant_id: str):
+    #def invalidate_cache(self, tenant_id: str):
 
         """Invalidates Redis cache for tenant."""
 
@@ -314,21 +314,21 @@ class TenantServiceDynamoDB:
             limit: int = 100
     ) -> List[TenantSummary]:
 
-        cache_key = f"tenant_summaries:{skip}:{limit}"
+       # cache_key = f"tenant_summaries:{skip}:{limit}"
 
-        cached_data = redis_client.get(cache_key)
+        #cached_data = redis_client.get(cache_key)
 
-        if cached_data:
-            print("CACHE HIT")
+        #if cached_data:
+            #print("CACHE HIT")
 
-            cached_tenants = json.loads(cached_data)
+           # cached_tenants = json.loads(cached_data)
 
-            return [
-                TenantSummary(**tenant)
-                for tenant in cached_tenants
-            ]
+           # return [
+           #     TenantSummary(**tenant)
+            #    for tenant in cached_tenants
+            #]
 
-        print("CACHE MISS")
+        #print("CACHE MISS")
 
         table = get_dynamodb_table()
 
@@ -375,17 +375,17 @@ class TenantServiceDynamoDB:
             if not last_evaluated_key:
                 break
 
-        paginated_tenants = tenants[skip: skip + limit]
+        return tenants[skip: skip + limit]
 
-        redis_client.setex(
-            cache_key,
-            300,
-            json.dumps(
-                [tenant.model_dump() for tenant in paginated_tenants]
-            )
-        )
+        #redis_client.setex(
+           # cache_key,
+           # 300,
+           # json.dumps(
+              #  [tenant.model_dump() for tenant in paginated_tenants]
+           # )
+       # )
 
-        return paginated_tenants
+
 
     from typing import Optional, Dict, Any
 
@@ -465,7 +465,7 @@ class TenantServiceDynamoDB:
             "PROFILE",
             {"is_deleted": False, "deleted_at": None, "status": TenantStatus.ACTIVE.value, "is_active": True},
         )
-        self.invalidate_cache(tenant_id)
+        #self.invalidate_cache(tenant_id)
         return True
 
     def update_tenant(
@@ -555,7 +555,7 @@ class TenantServiceDynamoDB:
         update_item(f"TENANT#{tenant_id}", "PROFILE", update_dict)
 
         # Invalidate cache after update
-        self.invalidate_cache(tenant_id)
+        #self.invalidate_cache(tenant_id)
 
         return self.get_tenant(tenant_id)
 
@@ -571,7 +571,7 @@ class TenantServiceDynamoDB:
         # Decrement platform counter
         if result is not None:
             # Invalidate cache
-            self.invalidate_cache(tenant_id)
+            #self.invalidate_cache(tenant_id)
 
             try:
                 from app.services import analytics_service, USE_DYNAMODB
@@ -607,7 +607,7 @@ class TenantServiceDynamoDB:
         )
 
         # Invalidate cache
-        self.invalidate_cache(tenant_id)
+        #self.invalidate_cache(tenant_id)
 
         return api_key
 
