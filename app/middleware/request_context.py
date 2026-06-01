@@ -3,7 +3,6 @@
 import uuid
 from typing import Callable
 
-from app.services.tenant.tenant_service_dynamodb import tenant_service_dynamodb
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -21,35 +20,11 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         # Generate or extract request ID
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
 
-
         # Set context variables for logging
         request_id_token = request_id_var.set(request_id)
-        # Extract request origin
-        origin = request.headers.get("origin")
-
-        if origin:
-            origin = origin.lower().rstrip("/")
 
         # Extract tenant ID from header if present
         tenant_id = request.headers.get("X-Tenant-ID")
-        # Validate request origin
-        if tenant_id and origin:
-
-            tenant = tenant_service_dynamodb.get_tenant(tenant_id)
-
-            allowed_origins = (
-                tenant.config.allowed_origins
-                if tenant and tenant.config
-                else []
-            )
-
-            if tenant and origin not in allowed_origins:
-                return Response(
-                    content='{"detail":"Origin not allowed"}',
-                    status_code=403,
-                    media_type="application/json"
-                )
-
         tenant_id_token = None
         if tenant_id:
             tenant_id_token = tenant_id_var.set(tenant_id)
@@ -67,27 +42,6 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                 },
             )
 
-            # Handle preflight requests
-            if request.method == "OPTIONS":
-
-                response = Response(status_code=200)
-
-                if origin:
-                    response.headers["Access-Control-Allow-Origin"] = origin
-
-                response.headers["Access-Control-Allow-Headers"] = (
-                    "Content-Type, Authorization, X-Tenant-ID, X-API-Key"
-                )
-
-                response.headers["Access-Control-Allow-Methods"] = (
-                    "GET, POST, PUT, DELETE, OPTIONS"
-                )
-
-                response.headers["Access-Control-Allow-Credentials"] = "true"
-                response.headers["Vary"] = "Origin"
-
-                return response
-
             # Process request
             response = await call_next(request)
 
@@ -103,21 +57,6 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
             # Add request ID to response headers
             response.headers["X-Request-ID"] = request_id
-
-            # Add CORS headers
-            if origin:
-                response.headers["Access-Control-Allow-Origin"] = origin
-
-            response.headers["Access-Control-Allow-Headers"] = (
-                "Content-Type, Authorization, X-Tenant-ID, X-API-Key"
-            )
-
-            response.headers["Access-Control-Allow-Methods"] = (
-                "GET, POST, PUT, DELETE, OPTIONS"
-            )
-
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Vary"] = "Origin"
 
             return response
 
