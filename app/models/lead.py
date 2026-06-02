@@ -40,3 +40,8 @@ class LeadCreate(BaseModel):
     status: Optional[LeadStatus] = None  # Allow specifying status on creation
     metadata: Optional[Dict[str, Any]] = None
 
+class LeadListResponse(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    status: LeadStatus
+    created_at: datetime

@@ -10,5 +10,6 @@ def generate_allowed_origins(domain: str) -> list[str]:
 
     return [
         f"https://{domain}",
-        f"https://www.{domain}"
+        f"https://www.{domain}",
+        f"http://{domain}",
     ]

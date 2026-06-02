@@ -8,7 +8,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 
 from app.core.dynamodb import get_item, put_item, update_item, query_items
-from app.models.lead import Lead, LeadCreate, LeadStatus
+from app.models.lead import Lead, LeadCreate, LeadStatus, LeadListResponse
 from decimal import Decimal
 
 
@@ -222,6 +222,74 @@ class LeadServiceDynamoDB:
             )
 
         return leads
+
+    def export_leads(
+            self,
+            tenant_id: str,
+            status: Optional[LeadStatus] = None,
+            skip: int = 0,
+            limit: int = 100,
+    ) -> List[LeadListResponse]:
+
+        all_leads = []
+
+        if status:
+
+            items = query_items(
+                pk=f"TENANT#{tenant_id}#{status.value}",
+                index_name="GSI2",
+                limit=limit,
+                scan_forward=False,
+            )
+
+            all_leads.extend(items)
+
+        else:
+
+            INTERNAL_LIMIT = 1000
+
+            for lead_status in LeadStatus:
+                items = query_items(
+                    pk=f"TENANT#{tenant_id}#{lead_status.value}",
+                    index_name="GSI2",
+                    limit=INTERNAL_LIMIT,
+                    scan_forward=False,
+                )
+
+                all_leads.extend(items)
+
+        # Sort all leads
+        all_leads.sort(
+            key=lambda x: x.get("created_at", ""),
+            reverse=True
+        )
+
+        # Pagination
+        paginated_items = all_leads[skip: skip + limit]
+
+        # Response list
+        leads: List[LeadListResponse] = []
+
+        for item in paginated_items:
+
+            created_at = item.get("created_at")
+
+            if isinstance(created_at, str):
+                created_at = datetime.fromisoformat(created_at)
+
+            status_value = item.get("status", "new")
+
+            leads.append(
+                LeadListResponse(
+                    name=item.get("name"),
+                    phone=item.get("phone"),
+                    status=status_value,
+                    created_at=created_at,
+                )
+            )
+
+        return leads
+
 
     def update_lead_details(self, lead_id: str, updates: Dict[str, Any]) -> Optional[Lead]:
         """Updates lead details (name, phone, metadata, etc.)."""

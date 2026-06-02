@@ -3,6 +3,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import Request
 
 from app.models.conversation import (
     ChatRequest,
@@ -922,6 +923,48 @@ async def get_tenant_conversations_count(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
+@router.post("/widget/validate")
+async def validate_widget(
+    request: Request,
+    widget_key: str = Header(..., alias="X-Widget-Key"),
+    tenant_id: str = Header(..., alias="X-Tenant-Id"),
+):
+    print(widget_key)
+    # Get tenant
+    tenant = tenant_service.get_tenant(tenant_id)
+    print(tenant)
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant not found",
+        )
+
+    # Validate widget key
+    if tenant.config.api_key != widget_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid widget key",
+        )
+
+    # Validate origin
+    origin = request.headers.get("origin")
+
+    if not origin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Missing origin header",
+        )
+
+    if origin not in tenant.config.allowed_origins:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Unauthorized domain",
+        )
+
+    return {
+        "success": True,
+        "tenant_name": tenant.name,
+    }
 
 # === SESSION MANAGEMENT ENDPOINTS ===
 # Deprecated: DynamoDB service is stateless regarding "sessions" but preserves history.

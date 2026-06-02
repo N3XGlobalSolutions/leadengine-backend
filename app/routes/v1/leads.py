@@ -1,8 +1,11 @@
 """Lead management routes."""
-
+import csv
+import io
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from starlette.responses import StreamingResponse
+
 
 from app.models.lead import Lead, LeadCreate, LeadStatus
 from app.models.user import UserResponse
@@ -95,4 +98,62 @@ async def get_tenant_leads(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+@router.get("/tenants/{tenant_id}/export")
+async def export_tenant_leads(
+    tenant_id: str,
+    status: Optional[LeadStatus] = None,
+    current_user: UserResponse = Depends(get_current_user),
+):
+    """Export tenant leads as CSV."""
+
+    try:
+
+        await validate_tenant_access(tenant_id, current_user)
+
+        leads = lead_service.export_leads(
+            tenant_id=tenant_id,
+            status=status,
+        )
+
+        output = io.StringIO(newline="")
+
+        writer = csv.writer(output)
+
+        # CSV Header
+        writer.writerow([
+            "Name",
+            "Phone",
+            "Status",
+            "Created At",
+        ])
+
+        # CSV Rows
+        for lead in leads:
+            writer.writerow([
+                lead.name,
+                lead.phone,
+                lead.status.value,
+                lead.created_at.isoformat(),
+            ])
+
+        output.seek(0)
+
+        return StreamingResponse(
+            output,
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition":
+                "attachment; filename=leads.csv"
+            }
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
         )
