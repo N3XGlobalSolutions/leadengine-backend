@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 import phonenumbers
 
+from app.services.chat.text_cleaners import clean_llm_text
 from app.core.logging_config import get_logger
 from app.models.conversation import Conversation, ConversationState
 from app.models.tenant import TenantConfig, QualificationQuestion
@@ -442,7 +443,7 @@ class S3InternationalChatStateMachine:
         # No phone yet - ask for contact
         if self._is_user_asking_question(user_message):
             phone_asks = get_message(lang, "need_phone_to_continue_for_s3International")
-            import random
+
             phone_question = random.choice(phone_asks) if isinstance(phone_asks, list) else phone_asks
 
             return S3InternationalStateMachineResult(
@@ -460,7 +461,7 @@ class S3InternationalChatStateMachine:
             name = current_data.get("name", "")
             prompt_text = get_message(lang, "phone_ask_with_name_for_s3International", name=name)
             if isinstance(prompt_text, list):
-                import random
+
                 prompt_text = random.choice(prompt_text)
         else:
             prompt_text = get_message(lang, "ask_contact_for_s3International")
@@ -550,7 +551,7 @@ class S3InternationalChatStateMachine:
             name = current_data.get("name", "")
             prompt_text = get_message(lang, "phone_ask_with_name_for_s3International", name=name)
             if isinstance(prompt_text, list):
-                import random
+
                 prompt_text = random.choice(prompt_text)
         else:
             prompt_text = get_message(lang, "ask_contact_for_s3International")
@@ -1470,6 +1471,8 @@ Response:"""
             "busy",
             "free",
             "available",
+            "my",
+            "number",
         ]
 
         for pattern in patterns:
@@ -1522,6 +1525,8 @@ Response:"""
             "where",
             "who",
             "which",
+            "number",
+            "my",
         ]
 
         # Check for "my name is X" pattern (case insensitive)
@@ -1571,6 +1576,7 @@ One-word summary (e.g., "$50k-100k", "3 months", "Yes", "Downtown"):"""
             response = llm_service.generate_response(prompt)
             summary = response.strip().strip("\"'")
 
+            summary = clean_llm_text(summary) or summary
             # Limit to reasonable length
             if len(summary) > 30:
                 summary = summary[:30]
@@ -1696,7 +1702,6 @@ One-word summary (e.g., "$50k-100k", "3 months", "Yes", "Downtown"):"""
             ],
         ]
 
-        import random
 
         options = rephrase_options[min(attempt - 1, len(rephrase_options) - 1)]
         return random.choice(options)

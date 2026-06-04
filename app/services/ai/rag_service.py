@@ -655,6 +655,7 @@ Your response:"""
             response = self._filter_leaked_prompts(response)
             
             logger.info(f"Simple RAG answer generated for tenant {tenant_id}")
+
             return response.strip(), sources
             
         except Exception as e:

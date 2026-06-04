@@ -422,20 +422,35 @@ async def chat(
                 answer = f"{transition} {answer}"
 
         elif state_result.action == "answer_and_ask":
-            # User asked a question - answer via RAG then weave in qualification question
+
             rag_answer, rag_sources = rag_service.answer_query_simple(
-                query=state_result.rag_query, 
+
+                query=state_result.rag_query,
+
                 tenant_id=request.tenant_id,
+
                 language=config.language
+
             )
+
             sources = rag_sources
 
-            # Weave together the RAG answer and qualification question
-            answer = _weave_answer_and_question(
-                rag_answer=rag_answer,
-                question=state_result.question_to_ask,
-                config=config,
-            )
+            transition = getattr(state_result, "conversational_transition", None)
+
+            parts = []
+
+            if rag_answer:
+                parts.append(rag_answer)
+
+            if transition:
+                parts.append(transition)
+
+            if state_result.question_to_ask:
+                parts.append(state_result.question_to_ask)
+
+                answer = "\n\n".join(parts) if parts else ""
+            else:
+                answer = state_result.question_to_ask
 
         elif state_result.action == "show_summary":
             # Generate summary message from backend data

@@ -14,6 +14,7 @@ PHASE 2 — Evaluate + Lead Output
   - Generate closing summary for the user
 """
 
+import random
 import re
 import json
 from dataclasses import dataclass, field
@@ -413,7 +414,6 @@ Ensure the output is ONLY valid JSON. Avoid wrapping in markdown blocks."""
             lang = config.language or "en"
             bot_reply = data.get("reply", get_message(lang, "ask_contact"))
             if isinstance(bot_reply, list):
-                import random
                 bot_reply = random.choice(bot_reply)
             
         except Exception as e:
@@ -423,18 +423,16 @@ Ensure the output is ONLY valid JSON. Avoid wrapping in markdown blocks."""
             if not ms.get("name") and not ms.get("phone"):
                 bot_reply = get_message(lang, "ask_contact")
                 if isinstance(bot_reply, list):
-                    import random
                     bot_reply = random.choice(bot_reply)
             elif not ms.get("phone"):
                 name = ms.get("name")
                 bot_reply = get_message(lang, "phone_ask_with_name", name=name)
                 if isinstance(bot_reply, list):
-                    import random
+
                     bot_reply = random.choice(bot_reply)
             else:
                 bot_reply = get_message(lang, "got_phone_ask_name")
                 if isinstance(bot_reply, list):
-                    import random
                     bot_reply = random.choice(bot_reply)
 
         history.append({"role": "assistant", "content": bot_reply})

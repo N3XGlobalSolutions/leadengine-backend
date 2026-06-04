@@ -23,6 +23,7 @@ import phonenumbers
 from app.core.logging_config import get_logger
 from app.models.conversation import Conversation, ConversationState
 from app.models.tenant import TenantConfig, QualificationQuestion
+from app.services.chat.text_cleaners import clean_llm_text
 from app.utils.localization import get_message, get_language_name
 from app.services.ai.llm_service import llm_service
 
@@ -441,7 +442,7 @@ class S3ChatStateMachine:
         # No phone yet - ask for contact
         if self._is_user_asking_question(user_message):
             phone_asks = get_message(lang, "need_phone_to_continue")
-            import random
+
             phone_question = random.choice(phone_asks) if isinstance(phone_asks, list) else phone_asks
             
             return S3StateMachineResult(
@@ -458,7 +459,7 @@ class S3ChatStateMachine:
             name = current_data.get("name", "")
             prompt_text = get_message(lang, "phone_ask_with_name", name=name)
             if isinstance(prompt_text, list):
-                import random
+
                 prompt_text = random.choice(prompt_text)
         else:
             prompt_text = get_message(lang, "ask_contact")
@@ -548,7 +549,6 @@ class S3ChatStateMachine:
             name = current_data.get("name", "")
             prompt_text = get_message(lang, "phone_ask_with_name", name=name)
             if isinstance(prompt_text, list):
-                import random
                 prompt_text = random.choice(prompt_text)
         else:
             prompt_text = get_message(lang, "ask_contact")
@@ -1472,6 +1472,8 @@ Response:"""
             "busy",
             "free",
             "available",
+            "my",
+            "number",
         ]
 
         for pattern in patterns:
@@ -1573,6 +1575,7 @@ One-word summary (e.g., "$50k-100k", "3 months", "Yes", "Downtown"):"""
             response = llm_service.generate_response(prompt)
             summary = response.strip().strip("\"'")
 
+            summary = clean_llm_text(summary) or summary
             # Limit to reasonable length
             if len(summary) > 30:
                 summary = summary[:30]
@@ -1698,7 +1701,6 @@ One-word summary (e.g., "$50k-100k", "3 months", "Yes", "Downtown"):"""
             ],
         ]
 
-        import random
 
         options = rephrase_options[min(attempt - 1, len(rephrase_options) - 1)]
         return random.choice(options)

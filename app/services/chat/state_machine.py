@@ -10,6 +10,7 @@ Key Principles:
 4. Summary is created by backend, not LLM
 """
 
+import random
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -17,6 +18,8 @@ from typing import Any, Dict, List, Optional
 from app.core.logging_config import get_logger
 from app.models.conversation import Conversation, ConversationState
 from app.models.tenant import TenantConfig, QualificationQuestion
+from app.services.ai.llm_service import llm_service
+from app.services.chat.text_cleaners import clean_llm_text
 from app.utils.localization import get_message, get_language_name
 
 logger = get_logger(__name__)
@@ -275,7 +278,7 @@ class ChatStateMachine:
             if not has_name and name_ask_count < MAX_NAME_ASK_COUNT:
                 lang = tenant_config.language or "en"
                 name_prompts = get_message(lang, "got_phone_ask_name")
-                import random
+
                 
                 return StateMachineResult(
                     next_state=ConversationState.AWAITING_CONTACT.value,
@@ -319,7 +322,6 @@ class ChatStateMachine:
             if self._is_user_asking_question(user_message):
                 lang = tenant_config.language or "en"
                 phone_asks = get_message(lang, "need_phone_to_continue")
-                import random
                 phone_question = random.choice(phone_asks)
                 
                 return StateMachineResult(
@@ -335,7 +337,6 @@ class ChatStateMachine:
             if has_name:
                 phone_prompts = get_message(lang, "phone_ask_with_name", name=name)
                 if isinstance(phone_prompts, list):
-                    import random
                     prompt_text = random.choice(phone_prompts)
                 else:
                     prompt_text = phone_prompts
@@ -343,7 +344,6 @@ class ChatStateMachine:
                 # Still no phone - ask again with localization
                 prompt_text = get_message(lang, "need_phone_to_continue", name=name)
                 if isinstance(prompt_text, list):
-                    import random
                     prompt_text = random.choice(prompt_text)
                 
             return StateMachineResult(
@@ -360,7 +360,7 @@ class ChatStateMachine:
             # Got phone, but no name - ask for name with localization
             prompt_text = get_message(lang, "got_phone_ask_name")
             if isinstance(prompt_text, list):
-                import random
+
                 prompt_text = random.choice(prompt_text)
 
             return StateMachineResult(
@@ -865,7 +865,7 @@ Name:"""
             'hello', 'hi', 'hey', 'yes', 'no', 'sure', 'thanks', 'thank', 'please',
             'just', 'also', 'actually', 'really', 'very', 'quite', 'well',
             'calling', 'asking', 'wondering', 'trying', 'hoping', 'waiting',
-            'new', 'old', 'happy', 'sad', 'busy', 'free', 'available',
+            'new', 'old', 'happy', 'sad', 'busy', 'free', 'available','my','number',
         ]
         
         for pattern in patterns:
@@ -948,13 +948,14 @@ User's answer: "{message}"
 
 One-word summary (e.g., "$50k-100k", "3 months", "Yes", "Downtown"):"""
             
-            response = self.llm_service.generate_response(prompt)
-            summary = response.strip().strip('"\'')
-            
+            response = llm_service.generate_response(prompt)
+            summary = response.strip().strip("\"'")
+
+            summary = clean_llm_text(summary) or summary
             # Limit to reasonable length
             if len(summary) > 30:
                 summary = summary[:30]
-            
+
             return summary if summary else message[:20]
             
         except Exception as e:
@@ -1058,7 +1059,7 @@ One-word summary (e.g., "$50k-100k", "3 months", "Yes", "Downtown"):"""
             ]
         ]
         
-        import random
+
         options = rephrase_options[min(attempt - 1, len(rephrase_options) - 1)]
         return random.choice(options)
     
