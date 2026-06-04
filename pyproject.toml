@@ -28,7 +28,7 @@ dependencies = [
     "python-docx>=1.2.0",
     "python-jose[cryptography]>=3.5.0",
     "python-multipart>=0.0.20",
-    "qdrant-client>=1.16.1",
+    "qdrant-client>=1.16.1,<1.17.0",  # Pinned: server runs 1.16.3, client must be <=1 minor version ahead
     "redis>=7.4.0",
     "requests>=2.32.5",
     "slowapi>=0.1.9",

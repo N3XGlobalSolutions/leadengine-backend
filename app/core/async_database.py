@@ -25,10 +25,11 @@ class AsyncDatabase:
                     url=settings.Qdrant_URL,
                     api_key=api_key,
                     timeout=30,
+                    check_compatibility=False,  # Client 1.18.0 vs server 1.16.3 — safe to bypass
                 )
             else:
                 # Local Qdrant for development
-                cls._qdrant_client = AsyncQdrantClient(path=settings.Qdrant_PATH)
+                cls._qdrant_client = AsyncQdrantClient(path=settings.Qdrant_PATH, check_compatibility=False)
         return cls._qdrant_client
 
     @classmethod

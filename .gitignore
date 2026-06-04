@@ -216,6 +216,7 @@ __marimo__/
 .streamlit/secrets.toml
 
 lambda_package
+lambda_package_dev
 qbot-lambda.zip
 qbot-lambda-dev.zip
 # .agent/

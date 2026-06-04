@@ -114,34 +114,52 @@ JSON:"""
 
     try:
         response = llm.generate_response(prompt)
-        
-        # Parse JSON array from response
+
+        # Find the JSON array boundaries
         start = response.find("[")
-        end = response.rfind("]") + 1
-        if start != -1 and end > start:
-            questions = json.loads(response[start:end])
-            
-            # Validate structure
-            validated = []
-            for i, q in enumerate(questions):
-                if isinstance(q, dict) and "question" in q:
-                    validated.append({
-                        "id": q.get("id", f"qb_{i+1:03d}"),
-                        "question": q["question"],
-                        "dimension": q.get("dimension", "general"),
-                        "priority": q.get("priority", "medium"),
-                        "quick_replies": q.get("quick_replies", []),
-                    })
-            
-            logger.info(
-                f"Generated question bank for tenant {tenant_id}: "
-                f"{len(validated)} questions"
-            )
-            return validated
-        else:
-            logger.warning(f"Failed to parse question bank JSON: {response[:100]}")
+        if start == -1:
+            logger.warning("No JSON array found in question bank response")
             return _fallback_question_bank()
-            
+
+        raw_json = response[start:]
+
+        # Strategy 1: Clean parse — works when LLM output is complete
+        questions = _try_parse_json(raw_json)
+
+        # Strategy 2: Repair truncated JSON — LLM sometimes cuts off mid-entry
+        # Find last fully-closed object (ends with "}") before truncation point
+        if questions is None:
+            repaired = _repair_truncated_json_array(raw_json)
+            if repaired:
+                questions = _try_parse_json(repaired)
+                if questions is not None:
+                    logger.info(
+                        f"Question bank JSON repaired: recovered "
+                        f"{len(questions)} questions after truncation"
+                    )
+
+        if not questions:
+            logger.warning(f"Could not parse question bank JSON, using fallback")
+            return _fallback_question_bank()
+
+        # Validate and normalize structure
+        validated = []
+        for i, q in enumerate(questions):
+            if isinstance(q, dict) and "question" in q:
+                validated.append({
+                    "id": q.get("id", f"qb_{i+1:03d}"),
+                    "question": q["question"],
+                    "dimension": q.get("dimension", "general"),
+                    "priority": q.get("priority", "medium"),
+                    "quick_replies": q.get("quick_replies", []),
+                })
+
+        logger.info(
+            f"Generated question bank for tenant {tenant_id}: "
+            f"{len(validated)} questions"
+        )
+        return validated if validated else _fallback_question_bank()
+
     except Exception as e:
         logger.error(f"Question bank generation failed: {e}")
         return _fallback_question_bank()
@@ -200,6 +218,43 @@ def warm_up_question_bank(tenant_id: str) -> bool:
     except Exception as e:
         logger.error(f"Question bank warm-up failed for {tenant_id}: {e}")
         return False
+
+
+def _try_parse_json(text: str):
+    """Attempt JSON parse, return None (not exception) on failure."""
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _repair_truncated_json_array(raw: str) -> str:
+    """Repair a truncated JSON array by finding the last fully-closed object.
+
+    The LLM (Nova Lite) truncates output mid-entry when response is long.
+    This recovers all complete question objects before the cut-off point.
+
+    Example input (truncated):
+        [{"id":"qb_001","question":"..."},{"id":"qb_002","question":"What's your budg
+    Example output (repaired):
+        [{"id":"qb_001","question":"..."}]
+    """
+    if not raw.startswith("["):
+        return ""
+
+    # Walk backwards from end to find last '}' that closes a complete object
+    # then close the array after it
+    last_close = raw.rfind("}")
+    if last_close == -1:
+        return ""
+
+    # Slice up to and including that closing brace, then close the array
+    candidate = raw[: last_close + 1].rstrip().rstrip(",") + "\n]"
+
+    # Quick sanity: make sure it at least starts like a valid array
+    if candidate.startswith("[") and candidate.endswith("]"):
+        return candidate
+    return ""
 
 
 def _fallback_question_bank() -> List[Dict[str, Any]]:
