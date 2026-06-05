@@ -39,48 +39,16 @@ echo "📋 Packages to install: $(wc -l < /tmp/lambda-requirements.txt)"
 
 # Create a temporary virtual environment with Python 3.12 (matches Lambda)
 cd ..
-mkdir -p .lambda_venv
-cd .lambda_venv
+echo "🐳 Installing dependencies inside Lambda container..."
 
-# Create a temporary virtual environment
-# Create a temporary virtual environment with Python 3.12 (matches Lambda)
-uv venv .venv_lambda --python 3.12
-source .venv_lambda/bin/activate
-
-# Install all dependencies from the lock-resolved requirements
-uv pip install -r /tmp/lambda-requirements.txt
-
-# Copy site-packages to lambda_package
-echo "📁 Copying dependencies to package directory..."
-cp -r .venv_lambda/lib/python3.*/site-packages/* ../lambda_package/
-
-deactivate
-cd ..
-
-# Copy application code
-echo "📋 Copying application code..."
-cd lambda_package
-cp -r ../app .
-cp ../lambda_handler.py .
-cp ../main.py .
-
-# Remove unnecessary files to reduce size
-echo "🗑️  Removing unnecessary files..."
-find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-# Keep .dist-info for package metadata (required by pydantic and other packages)
-# find . -type d -name "*.dist-info" -exec rm -rf {} + 2>/dev/null || true
-find . -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
-find . -type f -name "*.pyc" -delete
-find . -type f -name "*.pyo" -delete
-
-# Create ZIP
-echo "📦 Creating ZIP file..."
-zip -r -q ../qbot-lambda.zip .
-cd ..
-
-# Cleanup temp venv
-echo "🧹 Cleaning up..."
-rm -rf .lambda_venv
+docker run --rm \
+  -v "$PWD/lambda_package":/var/task \
+  -v "/tmp/lambda-requirements.txt:/tmp/requirements.txt" \
+  public.ecr.aws/lambda/python:3.12 \
+  pip install \
+    --no-cache-dir \
+    -r /tmp/requirements.txt \
+    -t /var/task
 
 # Check size
 SIZE=$(du -h qbot-lambda.zip | cut -f1)

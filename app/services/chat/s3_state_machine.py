@@ -490,7 +490,7 @@ class S3ChatStateMachine:
 
         if has_phone:
             if not has_name and conversation.name_ask_count < MAX_NAME_ASK_COUNT:
-                name_prompts = ["Great, got your number! May I know your name?"]
+                name_prompts = get_message(lang, "got_phone_ask_name")
                 return S3StateMachineResult(
                     next_state=ConversationState.AWAITING_CONTACT.value,
                     action="ask_name",
@@ -507,7 +507,10 @@ class S3ChatStateMachine:
             if first_idx < len(questions):
                 first_q = questions[first_idx]
                 quick_replies = self._get_quick_replies(first_q)
-                intro = "Perfect! Let's learn more about what you're looking for. "
+                if lang == "en":
+                    intro = "Perfect! Let's learn more about what you're looking for. "
+                else:
+                    intro = "उत्तम! आइए आप जो खोज रहे हैं उसके बारे में और जानें।. "
 
                 return S3StateMachineResult(
                     next_state="s3_qualifying",
@@ -536,11 +539,12 @@ class S3ChatStateMachine:
 
         # Still need phone
         if self._is_user_asking_question(user_message):
+            prompt_text = get_message(lang, "need_phone_to_continue")
             return S3StateMachineResult(
                 next_state=ConversationState.AWAITING_CONTACT.value,
                 action="answer_and_ask",
                 step_index=0,
-                question_to_ask="What's a good number to reach you?",
+                question_to_ask=random.choice(prompt_text),
                 rag_query=user_message,
                 extracted_data=current_data,
             )

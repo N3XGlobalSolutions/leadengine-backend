@@ -492,7 +492,10 @@ class S3InternationalChatStateMachine:
 
         if has_phone:
             if not has_name and conversation.name_ask_count < MAX_NAME_ASK_COUNT:
-                name_prompts = ["Great, got your number! May I know your name?"]
+                if lang == "en":
+                    name_prompts = ["Great, got your number! May I know your name?"]
+                else:
+                    name_prompts = ["बढ़िया, आपका नंबर मिल गया! क्या मैं आपका नाम जान सकता हूँ?"]
                 return S3InternationalStateMachineResult(
                     next_state=ConversationState.AWAITING_CONTACT.value,
                     action="ask_name",
@@ -509,7 +512,10 @@ class S3InternationalChatStateMachine:
             if first_idx < len(questions):
                 first_q = questions[first_idx]
                 quick_replies = self._get_quick_replies(first_q)
-                intro = "Perfect! Let's learn more about what you're looking for. "
+                if lang == "en":
+                    intro = "Perfect! Let's learn more about what you're looking for. "
+                else:
+                    intro = "उत्तम! आइए आप जो खोज रहे हैं उसके बारे में और जानें।. "
 
                 return S3InternationalStateMachineResult(
                     next_state="s3_qualifying",
@@ -538,11 +544,12 @@ class S3InternationalChatStateMachine:
 
         # Still need phone
         if self._is_user_asking_question(user_message):
+            prompt_text = get_message(lang, "need_phone_to_continue_for_s3International")
             return S3InternationalStateMachineResult(
                 next_state=ConversationState.AWAITING_CONTACT.value,
                 action="answer_and_ask",
                 step_index=0,
-                question_to_ask="What's a good number to reach you? ( Enter with Country code )",
+                question_to_ask=random.choice(prompt_text),
                 rag_query=user_message,
                 extracted_data=current_data,
             )
@@ -1580,7 +1587,6 @@ One-word summary (e.g., "$50k-100k", "3 months", "Yes", "Downtown"):"""
             # Limit to reasonable length
             if len(summary) > 30:
                 summary = summary[:30]
-
             return summary if summary else message[:20]
 
         except Exception as e:

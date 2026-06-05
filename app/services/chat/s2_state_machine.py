@@ -496,11 +496,18 @@ class S2ChatStateMachine:
 
                 # Safe fallback
                 if not name_prompts:
-                    name_prompts = [
-                        "May I know your name?",
-                        "What should I call you?",
-                        "Can I get your name please?"
-                    ]
+                    if lang == "en":
+                      name_prompts = [
+                            "May I know your name?",
+                            "What should I call you?",
+                            "Can I get your name please?"
+                        ]
+                    else:
+                        name_prompts = [
+                            "क्या मैं आपका नाम जान सकता हूँ?",
+                            "मैं आपको क्या कहकर बुलाऊँ?",
+                            "कृपया क्या मुझे आपका नाम मिल सकता है?"
+                        ]
 
                 return S2StateMachineResult(
                     next_state=ConversationState.AWAITING_CONTACT.value,
@@ -518,7 +525,10 @@ class S2ChatStateMachine:
             if first_idx < len(questions):
                 first_q = questions[first_idx]
                 quick_replies = self._get_quick_replies(first_q)
-                intro = "Perfect! Let's learn more about what you're looking for. "
+                if lang == "en":
+                    intro = "Perfect! Let's learn more about what you're looking for. "
+                else:
+                    intro = "उत्तम! आइए आप जो खोज रहे हैं उसके बारे में और जानें।. "
 
                 return S2StateMachineResult(
                     next_state=ConversationState.QUALIFYING.value,
@@ -546,11 +556,12 @@ class S2ChatStateMachine:
 
         # Still need phone
         if self._is_user_asking_question(user_message):
+            prompt_text = get_message(lang, "need_phone_to_continue")
             return S2StateMachineResult(
                 next_state=ConversationState.AWAITING_CONTACT.value,
                 action="answer_and_ask",
                 step_index=0,
-                question_to_ask="What's a good number to reach you?",
+                question_to_ask=random.choice(prompt_text),
                 rag_query=user_message,
                 extracted_data=current_data,
             )

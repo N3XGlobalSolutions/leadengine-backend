@@ -44,7 +44,6 @@ exit 1
 deploy_lambda() {
 local function_name="$1"
 
-```
 log "🚀 Updating Lambda: $function_name"
 
 aws lambda update-function-code \
@@ -61,8 +60,6 @@ aws lambda wait function-updated \
     --region "$REGION"
 
 log "✅ $function_name updated successfully"
-```
-
 }
 
 # ---------- Validation ----------
@@ -104,11 +101,10 @@ log "📦 Package Size: $ZIP_SIZE"
 
 log "☁️ Uploading package to S3..."
 
-aws s3 cp 
-qbot-lambda.zip 
-"s3://$S3_BUCKET/$S3_KEY" 
---region "$REGION"
-
+aws s3 cp \
+  qbot-lambda.zip \
+  "s3://$S3_BUCKET/$S3_KEY" \
+  --region "$REGION"
 log "✅ Upload complete"
 
 # ---------- Deploy ----------
