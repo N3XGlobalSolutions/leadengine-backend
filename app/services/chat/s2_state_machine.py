@@ -1107,7 +1107,7 @@ Response:"""
 
     # ==================== S2 OUTPUT BUILDING ====================
 
-    def _build_s3_summary(
+    def _build_s2_summary(
             self,
             extracted_data: Dict[str, str],
             questions: List[QualificationQuestion],
