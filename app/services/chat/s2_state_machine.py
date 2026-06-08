@@ -1107,23 +1107,32 @@ Response:"""
 
     # ==================== S2 OUTPUT BUILDING ====================
 
-    def _build_s2_summary(
-        self, extracted_data: Dict[str, str], questions: List[QualificationQuestion]
+    def _build_s3_summary(
+            self,
+            extracted_data: Dict[str, str],
+            questions: List[QualificationQuestion],
     ) -> Dict[str, Any]:
-        """Build S2 summary - same format as S1 for compatibility."""
-        summary = {
+
+        summary: Dict[str, Any] = {
             "name": extracted_data.get("name", "Not provided"),
             "phone": extracted_data.get("phone", "Not provided"),
         }
 
         q_num = 1
+
         for q in questions:
             if self._is_contact_question(q):
                 continue
 
             field_key = f"q{q_num}"
             answer = extracted_data.get(q.id, "Not provided")
-            summary[field_key] = {"label": q.label, "answer": answer}
+
+            summary[field_key] = {
+                "label": q.label,
+                "answer": answer,
+                "order": q_num,
+            }
+
             q_num += 1
 
         return summary

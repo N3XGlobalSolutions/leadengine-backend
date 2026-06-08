@@ -1064,36 +1064,33 @@ One-word summary (e.g., "$50k-100k", "3 months", "Yes", "Downtown"):"""
         return random.choice(options)
     
     def _build_summary(
-        self,
-        extracted_data: Dict[str, str],
-        questions: List[QualificationQuestion]
+            self,
+            extracted_data: Dict[str, str],
+            questions: List[QualificationQuestion],
     ) -> Dict[str, Any]:
-        """
-        Build lead summary from extracted data.
-        Format: name, phone, q1-q5 with one-word answers.
-        
-        Excludes questions that collect name/phone since those are shown separately.
-        """
-        summary = {
+
+        summary: Dict[str, Any] = {
             "name": extracted_data.get("name", "Not provided"),
             "phone": extracted_data.get("phone", "Not provided"),
         }
-        
-        # Add each question's answer (skip contact questions)
+
         q_num = 1
+
         for q in questions:
-            # Skip questions that collect name/phone (already shown above)
             if self._is_contact_question(q):
                 continue
-            
+
             field_key = f"q{q_num}"
             answer = extracted_data.get(q.id, "Not provided")
+
             summary[field_key] = {
                 "label": q.label,
-                "answer": answer
+                "answer": answer,
+                "order": q_num,
             }
+
             q_num += 1
-        
+
         return summary
 
 
