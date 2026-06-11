@@ -21,7 +21,7 @@ echo "📦 Installing dependencies using UV (from pyproject.toml)..."
 # Curated runtime-only package list — dynamically excludes heavy packages
 # not actually imported by the app (google-generativeai, motor, pymongo)
 # which would push the zip over Lambda's 250MB unzipped limit.
-python3 -c "
+python3.12 -c "
 import tomllib
 with open('../pyproject.toml', 'rb') as f:
     data = tomllib.load(f)
@@ -39,24 +39,24 @@ echo "📋 Packages to install: $(wc -l < /tmp/lambda-requirements.txt)"
 
 # Create a temporary virtual environment with Python 3.12 (matches Lambda)
 cd ..
-mkdir -p .lambda_venv
-cd .lambda_venv
 
-# Create a temporary virtual environment
-# Create a temporary virtual environment with Python 3.12 (matches Lambda)
-uv venv .venv_lambda --python 3.12
-source .venv_lambda/bin/activate
+echo "🐳 Installing dependencies inside Lambda x86_64 container..."
 
-# Install all dependencies from the lock-resolved requirements
-uv pip install -r /tmp/lambda-requirements.txt
+docker run --rm \
+  --platform linux/amd64 \
+  --entrypoint /bin/sh \
+  -v "$PWD/lambda_package":/var/task \
+  -v "/tmp/lambda-requirements.txt:/tmp/requirements.txt" \
+  public.ecr.aws/lambda/python:3.12 \
+  -c "
+python -m pip install \
+  --no-cache-dir \
+  -r /tmp/requirements.txt \
+  -t /var/task
+"
+echo "🔍 Verifying pydantic_core binary..."
 
-# Copy site-packages to lambda_package
-echo "📁 Copying dependencies to package directory..."
-cp -r .venv_lambda/lib/python3.*/site-packages/* ../lambda_package/
-
-deactivate
-cd ..
-
+find lambda_package -name "*pydantic_core*.so"
 # Copy application code
 echo "📋 Copying application code..."
 cd lambda_package

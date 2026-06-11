@@ -51,6 +51,12 @@ MESSAGES = {
                 "I'd love to help! Can you tell me your name and phone number?",
                 "What's your name and phone number? I'll make sure to follow up with you.",
            ],
+        "soft_disqualify": [
+            "Based on your responses, this program may not be the best fit for you right now. Would you still like to continue?",
+            "It seems your current requirements may not align with this program. Would you like to continue anyway?",
+            "You may not meet the typical eligibility criteria at the moment. Would you like to proceed with the conversation?",
+            "That's completely fine. Based on your responses, this opportunity may not be suitable right now. Would you like to continue anyway?"
+        ],
            "general_contact_ask_for_s3International": [
                "To help you better, could you please share your name and phone number with country code?",
                "I'd love to help! Can you tell me your name and phone number with country code. Example: +1 2025550123?",
@@ -117,6 +123,12 @@ MESSAGES = {
             "आपका नाम और फ़ोन नंबर क्या है? मैं सुनिश्चित करूँगा कि हम आपसे संपर्क करें।"
         ],
 
+        "soft_disqualify": [
+            "आपके उत्तरों के आधार पर, यह कार्यक्रम फिलहाल आपके लिए सबसे उपयुक्त नहीं हो सकता। क्या आप फिर भी बातचीत जारी रखना चाहेंगे?",
+            "ऐसा लगता है कि आपकी वर्तमान आवश्यकताएँ इस कार्यक्रम से पूरी तरह मेल नहीं खाती हैं। क्या आप फिर भी आगे बढ़ना चाहेंगे?",
+            "संभव है कि आप इस समय सामान्य पात्रता मानदंडों को पूरा न करते हों। क्या आप बातचीत जारी रखना चाहेंगे?",
+            "कोई बात नहीं। आपके उत्तरों के आधार पर यह अवसर फिलहाल आपके लिए उपयुक्त नहीं लग रहा है। क्या आप फिर भी आगे बढ़ना चाहेंगे?"
+        ],
         "general_contact_ask_for_s3International": [
             "आपकी बेहतर सहायता के लिए, क्या आप कृपया अपना नाम और देश कोड के साथ फ़ोन नंबर साझा कर सकते हैं?",
             "मुझे आपकी मदद करने में खुशी होगी! क्या आप अपना नाम और देश कोड के साथ फ़ोन नंबर बता सकते हैं? उदाहरण: +91 9876543210",

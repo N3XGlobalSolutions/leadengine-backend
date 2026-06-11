@@ -16,6 +16,7 @@ Key Principles:
 
 import random
 import re
+import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -881,14 +882,44 @@ class S2ChatStateMachine:
             )
 
         if "maybe later" in user_message.lower():
-            return S2StateMachineResult(
-                next_state=ConversationState.COMPLETED.value,
-                action="disqualify_lead",
-                step_index=conversation.current_step_index,
-                show_actions=False,
-                summary_data=self._build_s2_summary(current_data, questions),
-                extracted_data=current_data,
-            )
+            s2_out = self._get_stored_s2_output(current_data)
+            priority = current_data.get("_s2_priority", "Medium")
+            print("hello world", priority, s2_out, current_data)
+
+            if s2_out:
+                if priority == "High":
+                    logger.info(
+                        "S2: Downgrading High priority to Medium due to 'Maybe later'"
+                    )
+                    s2_out["lead_priority"] = "Medium"
+                    s2_out["reasoning_summary"] += (
+                        " (Downgraded from High: User clicked 'Maybe later')"
+                    )
+                    current_data["_s2_priority"] = "Medium"
+                elif priority == "Medium":
+                    logger.info(
+                        "S2: Downgrading Medium priority to Low due to 'Maybe later'"
+                    )
+                    s2_out["lead_priority"] = "Low"
+                    s2_out["reasoning_summary"] += (
+                        " (Downgraded from Medium: User clicked 'Maybe later')"
+                    )
+                    current_data["_s2_priority"] = "Low"
+
+                # Update extracted data mapping
+                if priority in ["High", "Medium"]:
+
+                    current_data["_s2_lead_output_json"] = json.dumps(s2_out)
+
+                    return S2StateMachineResult(
+                        next_state=ConversationState.COMPLETED.value,
+                        action="disqualify_lead",
+                        step_index=conversation.current_step_index,
+                        show_actions=False,
+                        summary_data=self._build_s2_summary(current_data, questions),
+                        s2_lead_output=s2_out,
+                        extracted_data=current_data,
+                    )
 
         return S2StateMachineResult(
             next_state=ConversationState.COMPLETED.value,
@@ -896,6 +927,7 @@ class S2ChatStateMachine:
             step_index=conversation.current_step_index,
             show_actions=True,
             summary_data=self._build_s2_summary(current_data, questions),
+            s2_lead_output=self._get_stored_s2_output(current_data),
         )
 
     # ==================== S2 ADAPTIVE LOGIC ====================
@@ -1104,6 +1136,21 @@ Response:"""
         transition = random.choice(templates).format(answer_summary=answer_summary)
 
         return transition
+
+    def _get_stored_s2_output(
+        self, current_data: Dict[str, str]
+    ) -> Optional[Dict[str, Any]]:
+        """Retrieve stored S2 output from extracted_data."""
+        try:
+            json_str = current_data.get("_s2_lead_output_json")
+            if json_str:
+
+                return json.loads(json_str)
+        except Exception as e:
+            logger.error(f"Failed to parse stored S2 output: {e}")
+        return None
+
+
 
     # ==================== S2 OUTPUT BUILDING ====================
 
@@ -1657,7 +1704,6 @@ One-word summary (e.g., "$50k-100k", "3 months", "Yes", "Downtown"):"""
         try:
             # Prepare inputs for LLM
             lqc_data = [{"question_text": q.instruction, "id": q.id} for q in questions]
-
             # Call LLM Service
             analysis = self.llm_service.analyze_lead_priority(
                 transcript=history or [],
@@ -1668,7 +1714,6 @@ One-word summary (e.g., "$50k-100k", "3 months", "Yes", "Downtown"):"""
 
             # Store in extracted_data (matches frontend expectation)
             if analysis:
-                import json
                 current_data["_s2_priority"] = analysis.get("lead_priority", "Medium")
                 # Store full output even if frontend hides parts of it
                 current_data["_s2_lead_output_json"] = json.dumps(analysis)
@@ -1678,7 +1723,6 @@ One-word summary (e.g., "$50k-100k", "3 months", "Yes", "Downtown"):"""
 
         except Exception as e:
             logger.error(f"S2 Lead Analysis Failed: {e}")
-            import json
             fallback = {
                 "lead_priority": "Medium",
                 "reasoning_summary": "Analysis unavailable.",
