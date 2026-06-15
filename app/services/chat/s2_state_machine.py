@@ -925,7 +925,7 @@ class S2ChatStateMachine:
             next_state=ConversationState.COMPLETED.value,
             action="acknowledge",
             step_index=conversation.current_step_index,
-            show_actions=True,
+            show_actions=False,
             summary_data=self._build_s2_summary(current_data, questions),
             s2_lead_output=self._get_stored_s2_output(current_data),
         )
