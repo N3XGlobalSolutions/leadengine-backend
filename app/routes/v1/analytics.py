@@ -75,9 +75,8 @@ async def get_platform_daily_metrics(
     from app.services.tenant.tenant_service_dynamodb import tenant_service_dynamodb
 
     # Fetch all tenant IDs
-    tenants = tenant_service_dynamodb.list_tenants(skip=0, limit=200)
-    tenant_ids = [t.tenant_id for t in tenants]
-
+    tenants = tenant_service_dynamodb.list_tenant_summaries(skip=0, limit=200)
+    tenant_ids = [t.id for t in tenants]
     # Build date range
     today = datetime.now(timezone.utc)
     date_range = [

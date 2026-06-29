@@ -9,7 +9,7 @@ from app.core.config import get_settings
 from app.core.logging_config import get_logger, setup_logging
 from app.middleware.exception_handlers import setup_exception_handlers
 from app.middleware.request_context import RequestContextMiddleware
-from app.routes.v1 import auth, tenants, users, chat, documents, leads, analytics, audit
+from app.routes.v1 import auth, tenants, users, chat, documents, leads, analytics, audit, outbound, drafts
 
 # Initialize logging first
 setup_logging()
@@ -87,6 +87,8 @@ app.include_router(chat.router)
 app.include_router(leads.router)
 app.include_router(analytics.router)
 app.include_router(audit.router)
+app.include_router(outbound.router)
+app.include_router(drafts.router)
 
 
 

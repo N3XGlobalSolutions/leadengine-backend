@@ -82,6 +82,24 @@ class BedrockService:
                 )
         return self._client
 
+    def converse(self, prompt: str, temperature: float = 0.7, max_tokens: int = 4096):
+        return self.client.converse(
+            modelId=self.llm_model_id,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            inferenceConfig={
+                "maxTokens": max_tokens,
+                "temperature": temperature,
+            }
+        )
     def generate_embedding(self, text: str) -> list[float]:
         """Generate embedding for document text using Titan Text Embeddings V2.
 
@@ -170,134 +188,26 @@ class BedrockService:
         return embeddings
 
     def generate_response(self, prompt: str) -> str:
-        """Generate a response using LLM model.
-        
-        Supports both Converse API format (messages) and legacy format (prompt)
-        based on model ID.
-
-        Args:
-            prompt: The prompt to send to the model
-
-        Returns:
-            Generated text response
-        """
         try:
-            # Determine request format based on model ID
-            # Cross-region inference profiles (us.*, eu.*) may use legacy format
-            # Llama models often use legacy format with prompt field
-            use_legacy_format = (
-                self.llm_model_id.startswith("us.") or 
-                self.llm_model_id.startswith("eu.") or
-                "llama" in self.llm_model_id.lower()
-            )
-            
-            if "titan" in self.llm_model_id:
-                 # Amazon Titan format
-                request_body = json.dumps(
-                    {
-                        "inputText": prompt,
-                        "textGenerationConfig": {
-                            "maxTokenCount": 4096,
-                            "stopSequences": [],
-                            "temperature": 0.7,
-                            "topP": 0.9,
-                        },
-                    }
-                )
-            elif "nova" in self.llm_model_id:
-                # Amazon Nova format (Converse API style)
-                request_body = json.dumps(
-                    {
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": [{"text": prompt}],
-                            }
-                        ],
-                        "inferenceConfig": {
-                            "max_new_tokens": 1000,  # Reduced - keep responses concise
-                            "temperature": 0.3,  # Lowered from 0.7 - much less hallucination
-                            "top_p": 0.85,  # Lowered from 0.9 - more focused responses
-                            "stopSequences": [  # NEW: Stop if leaking prompts
-                                "<",  # Stop before XML tags
-                                "CRITICAL INSTRUCTION",
-                                "core_instructions",
-                                "I am programmed",
-                                "My instructions are"
-                            ]
-                        }
-                    }
-                )
-            elif use_legacy_format:
-                # Legacy format for Llama and cross-region profiles
-                request_body = json.dumps(
-                    {
-                        "prompt": prompt,
-                        "max_gen_len": 4096,
-                        "temperature": 0.7,
-                        "top_p": 0.9,
-                    }
-                )
-            else:
-                # Converse API format for newer models
-                request_body = json.dumps(
-                    {
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": prompt,
-                            }
-                        ],
-                        "max_tokens": 4096,
-                        "temperature": 0.7,
-                        "top_p": 0.9,
-                    }
-                )
-
-            response = self.client.invoke_model(
+            response = self.client.converse(
                 modelId=self.llm_model_id,
-                body=request_body,
-                contentType="application/json",
-                accept="application/json",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "text": prompt
+                            }
+                        ]
+                    }
+                ],
+                inferenceConfig={
+                    "maxTokens": 4096,
+                    "temperature": 0.7,
+                }
             )
 
-            response_body = json.loads(response["body"].read())
-
-            # Extract generated text from response
-            # Handle multiple response formats based on model type
-            generated_text = None
-            
-            # Try Titan format
-            if "results" in response_body:
-                generated_text = response_body["results"][0]["outputText"]
-
-            # Try legacy Llama format first (generation field)
-            elif "generation" in response_body:
-                generated_text = response_body["generation"]
-            
-            # Try Converse API format (Llama4, Claude, etc.)
-            elif "output" in response_body:
-                output = response_body["output"]
-                if "message" in output and "content" in output["message"]:
-                    # Extract text from content array or string
-                    content = output["message"]["content"]
-                    if isinstance(content, list) and len(content) > 0:
-                        generated_text = content[0].get("text", str(content[0]))
-                    elif isinstance(content, str):
-                        generated_text = content
-            
-            # Try OpenAI format
-            elif "choices" in response_body:
-                generated_text = response_body["choices"][0]["message"]["content"]
-            
-            # Try simple content field
-            elif "content" in response_body:
-                generated_text = response_body["content"]
-            
-            # Fallback: convert entire response to string
-            if not generated_text:
-                logger.warning(f"Unexpected response format: {response_body}")
-                generated_text = str(response_body)
+            generated_text = response["output"]["message"]["content"][0]["text"]
 
             logger.info(
                 "Generated LLM response",
@@ -309,7 +219,7 @@ class BedrockService:
                     }
                 },
             )
-            
+
             return generated_text
 
         except Exception as e:
@@ -319,84 +229,54 @@ class BedrockService:
             )
             raise
 
-
 # Singleton instance - backward compatible with existing code
 class LLMService(BedrockService):
     """Alias for BedrockService to maintain backward compatibility."""
 
     def extract_lead_info(self, text: str, fields: list[str]) -> dict:
-        """
-        Extract lead information from text using structured LLM output.
-
-        Uses AWS Bedrock's tool calling for guaranteed JSON structure.
-        Falls back to basic parsing if tool calling fails.
-        """
         try:
-            # Define tool schema for structured extraction
-            tool_schema = {
-                "toolSpec": {
-                    "name": "extract_lead_fields",
-                    "description": "Extract lead information fields from user text",
-                    "inputSchema": {
-                        "json": {
-                            "type": "object",
-                            "properties": {
-                                field: {
-                                    "type": "string",
-                                    "description": f"The {field} of the lead",
-                                }
-                                for field in fields
-                            },
-                            "required": [],  # All fields optional
-                        }
-                    },
-                }
-            }
+            prompt = f"""
+    Extract any of these fields if mentioned.
 
-            # Create request with tool use
-            request_body = json.dumps(
-                {
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "text": f"Extract any of these fields if mentioned: {', '.join(fields)}. Text: {text}"
-                                }
-                            ],
-                        }
-                    ],
-                    "toolConfig": {"tools": [tool_schema]},
-                    "inferenceConfig": {
-                        "maxTokens": 1000,
-                        "temperature": 0
-                    }
-                }
+    Fields:
+    {', '.join(fields)}
+
+    User text:
+    {text}
+
+    Return ONLY valid JSON.
+
+    Example:
+
+    {{
+      "name": "Selvam",
+      "phone": "9876543210"
+    }}
+
+    Do not return markdown.
+    Do not return explanations.
+    Do not wrap JSON in code blocks.
+    """
+
+            response = self.converse(
+                prompt=prompt,
+                temperature=0,
+                max_tokens=1000
             )
 
-            response = self.client.invoke_model(
-                modelId=self.llm_model_id,
-                body=request_body,
-                contentType="application/json",
-                accept="application/json",
-            )
+            content = response["output"]["message"]["content"][0]["text"]
 
-            response_body = json.loads(response["body"].read())
-
-            # Extract structured output from tool use
-            if "content" in response_body:
-                for block in response_body["content"]:
-                    if block.get("type") == "toolUse":
-                        return block.get("input", {})
-
-            # Fallback: try basic JSON parsing
-            logger.warning("Tool calling not available, using fallback parsing")
-            return self._fallback_extract(text, fields)
+            try:
+                return json.loads(content)
+            except Exception:
+                logger.warning(
+                    f"Failed to parse extraction JSON: {content}"
+                )
+                return self._fallback_extract(text, fields)
 
         except Exception as e:
             logger.error(f"Structured extraction failed: {e}")
             return self._fallback_extract(text, fields)
-
     def _fallback_extract(self, text: str, fields: list[str]) -> dict:
         """Fallback extraction using basic prompt and JSON parsing."""
         prompt = f"""

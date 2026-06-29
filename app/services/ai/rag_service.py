@@ -639,9 +639,9 @@ Here's what I know from our knowledge base:
 They asked: {query}
 
 Quick tips:
-- If the answer's in the context above, share it in a friendly way (2-4 sentences max)
+- If the answer's in the context above, share it in a friendly way add emojis to it and make it more interactive.(3-6 sentences max)
 - If it's not there, just say (in {language_name}): "I don't see that info in my knowledge base, but I can get someone from the team to help you with that!"
-- Keep it short and sweet - nobody likes reading paragraphs
+- Keep it short and sweet and highlight important things in bold text- nobody likes reading paragraphs
 - Talk like a real person, not a robot
 - Respond ONLY in {language_name}
 

@@ -266,23 +266,28 @@ class ConversationServiceDynamoDB:
         )
 
     def get_tenant_conversations(
-        self, tenant_id: str, skip: int = 0, limit: int = 100
+            self, tenant_id: str, skip: int = 0, limit: int = 100
     ) -> List[Conversation]:
-        """Lists conversations for a tenant.
+        """Lists conversations for a tenant."""
 
-        Uses GSI1 which is automatically sorted by last_message_at (DESC)
-        thanks to the GSI1SK pattern: CONV#<timestamp>#<conv_id>
-        """
         items = query_items(
             pk=f"TENANT#{tenant_id}",
             index_name="GSI1",
             limit=limit + skip,
-            scan_forward=False,  # DESC order (newest first)
+            scan_forward=False,
         )
 
-        # Apply pagination and convert to Conversation model
+        # Keep only conversation records
+        conversation_items = [
+            item
+            for item in items
+            if item.get("PK", "").startswith("CONV#")
+               and item.get("conversation_id")
+        ]
+
         conversations = []
-        for conv in items[skip : skip + limit]:
+
+        for conv in conversation_items[skip: skip + limit]:
             started_at_raw = conv.get("started_at")
             if isinstance(started_at_raw, str):
                 started_at = datetime.fromisoformat(started_at_raw)

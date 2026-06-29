@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 import secrets
-#from app.core.redis_client import redis_client
+from app.core.redis_client import redis_client
 from app.utils.Origin_utils import generate_allowed_origins
 from app.core import config
 from app.core.dynamodb import (
@@ -21,6 +21,7 @@ from app.core.dynamodb import (
 from app.models.TenantSummary import TenantSummary
 from app.models.TenantSummaryPaginationResponse import TenantSummaryPaginationResponse
 from app.models.tenant import Tenant, TenantConfig, TenantCreate, TenantUpdate, TenantStatus
+from app.utils.encryption import encrypt_secret, is_encrypted
 
 
 def _strip_none_values(obj):
@@ -60,6 +61,9 @@ class TenantServiceDynamoDB:
         timestamp = datetime.now(timezone.utc).isoformat()
 
         config = tenant_data.config or TenantConfig()
+        if config.whatsapp_access_token and not is_encrypted(config.whatsapp_access_token):
+            config.whatsapp_access_token = encrypt_secret(config.whatsapp_access_token)
+
         
         # Default status to Onboarding if not specified
         status = tenant_data.status or TenantStatus.ONBOARDING
@@ -96,13 +100,13 @@ class TenantServiceDynamoDB:
 
         put_item(tenant_item)
 
-        #keys = redis_client.keys("tenant_summaries:*")
+        keys = redis_client.keys("tenant_summaries:*")
 
-       # if keys:
-            #redis_client.delete(*keys)
+        if keys:
+            redis_client.delete(*keys)
 
-        #print("TENANT CACHE CLEARED")
-        # Update analytics counters
+        print("TENANT CACHE CLEARED")
+        #Update analytics counters
         try:
             from app.services import analytics_service, USE_DYNAMODB
             if USE_DYNAMODB:
@@ -196,7 +200,7 @@ class TenantServiceDynamoDB:
 
         return tenant
 
-    #def invalidate_cache(self, tenant_id: str):
+    def invalidate_cache(self, tenant_id: str):
 
         """Invalidates Redis cache for tenant."""
 
@@ -217,118 +221,20 @@ class TenantServiceDynamoDB:
 
         print(f"CACHE INVALIDATED FOR TENANT: {tenant_id}")
 
-    def list_tenants(self, skip: int = 0, limit: int = 100) -> List[Tenant]:
-        """Lists all tenants (excludes soft-deleted tenants)."""
-        table = get_dynamodb_table()
+    def list_tenant_summaries(self, skip: int = 0, limit: int = 100):
 
-        tenants = []
-        last_evaluated_key = None
+        cache_key = f"tenant_summaries:{skip}:{limit}"
 
-        # Scan ALL pages first, then paginate in memory.
-        # Breaking early based on len(tenants) is unsafe: items filtered out
-        # (deleted) or skipped due to parse errors would cause us to stop
-        # before we've seen all tenants.
-        while True:
-            scan_kwargs = {
-                "FilterExpression": "begins_with(PK, :pk) AND SK = :sk",
-                "ExpressionAttributeValues": {":pk": "TENANT#", ":sk": "PROFILE"},
-            }
+        cached_data = redis_client.get(cache_key)
 
-            if last_evaluated_key:
-                scan_kwargs["ExclusiveStartKey"] = last_evaluated_key
+        if cached_data:
+            print("CACHE HIT")
 
-            response = table.scan(**scan_kwargs)
-            items = response.get("Items", [])
-            last_evaluated_key = response.get("LastEvaluatedKey")
+            cached_tenants = json.loads(cached_data)
 
-            for item in items:
-                pk = item.get("PK", "?")
+            return [TenantSummary(**tenant) for tenant in cached_tenants]
 
-                # Skip soft-deleted tenants
-                if item.get("is_deleted", False):
-                    continue
-
-                # Wrap the entire item parse so one bad tenant never
-                # crashes the whole list and never silently disappears.
-                try:
-                    created_at = item.get("created_at")
-                    if isinstance(created_at, str):
-                        created_at = datetime.fromisoformat(created_at)
-
-                    deleted_at = item.get("deleted_at")
-                    if isinstance(deleted_at, str):
-                        deleted_at = datetime.fromisoformat(deleted_at)
-
-                    config_data = item.get("config", {})
-
-                    # Data Migration: Fix legacy qualification_questions
-                    if "qualification_questions" in config_data:
-                        for q in config_data["qualification_questions"]:
-                            if "question" in q and "instruction" not in q:
-                                q["instruction"] = q["question"]
-                                q["label"] = q.get("label", "Question")
-
-                    config = TenantConfig(**config_data)
-
-                    # Determine Status (Migration Logic)
-                    status_str = item.get("status")
-                    is_active = item.get("is_active", True)
-
-                    if status_str:
-                        try:
-                            status = TenantStatus(status_str)
-                        except ValueError:
-                            status = TenantStatus.ACTIVE if is_active else TenantStatus.INACTIVE
-                    else:
-                        status = TenantStatus.ACTIVE if is_active else TenantStatus.INACTIVE
-
-                    tenants.append(
-                        Tenant(
-                            tenant_id=item.get("tenant_id") or pk.replace("TENANT#", ""),
-                            name=item.get("name", "Unknown"),
-                            config=config,
-                            created_at=created_at,
-                            status=status,
-                            is_active=is_active,
-                            is_deleted=item.get("is_deleted", False),
-                            deleted_at=deleted_at,
-                        )
-                    )
-                except Exception as e:
-                    print(
-                        f"ERROR: Failed to parse tenant item {pk} — tenant excluded from list. "
-                        f"Reason: {type(e).__name__}: {e}"
-                    )
-
-            # Stop when all pages are exhausted
-            if not last_evaluated_key:
-                break
-
-        return tenants[skip : skip + limit]
-
-
-
-    def list_tenant_summaries(
-            self,
-            skip: int = 0,
-            limit: int = 100
-    ) -> List[TenantSummary]:
-
-       # cache_key = f"tenant_summaries:{skip}:{limit}"
-
-        #cached_data = redis_client.get(cache_key)
-
-        #if cached_data:
-            #print("CACHE HIT")
-
-           # cached_tenants = json.loads(cached_data)
-
-           # return [
-           #     TenantSummary(**tenant)
-            #    for tenant in cached_tenants
-            #]
-
-        #print("CACHE MISS")
+        print("CACHE MISS")
 
         table = get_dynamodb_table()
 
@@ -336,7 +242,6 @@ class TenantServiceDynamoDB:
         last_evaluated_key = None
 
         while True:
-
             scan_kwargs = {
                 "FilterExpression": "begins_with(PK, :pk) AND SK = :sk",
                 "ExpressionAttributeValues": {
@@ -354,7 +259,6 @@ class TenantServiceDynamoDB:
             last_evaluated_key = response.get("LastEvaluatedKey")
 
             for item in items:
-
                 if item.get("is_deleted", False):
                     continue
 
@@ -375,16 +279,16 @@ class TenantServiceDynamoDB:
             if not last_evaluated_key:
                 break
 
-        return tenants[skip: skip + limit]
+        paginated_tenants = tenants[skip: skip + limit]
 
-        #redis_client.setex(
-           # cache_key,
-           # 300,
-           # json.dumps(
-              #  [tenant.model_dump() for tenant in paginated_tenants]
-           # )
-       # )
+        # ✅ STORE IN REDIS
+        redis_client.setex(
+            cache_key,
+            300,
+            json.dumps([t.model_dump() for t in paginated_tenants])
+        )
 
+        return paginated_tenants
 
 
     from typing import Optional, Dict, Any
@@ -465,7 +369,7 @@ class TenantServiceDynamoDB:
             "PROFILE",
             {"is_deleted": False, "deleted_at": None, "status": TenantStatus.ACTIVE.value, "is_active": True},
         )
-        #self.invalidate_cache(tenant_id)
+        self.invalidate_cache(tenant_id)
         return True
 
     def update_tenant(
@@ -525,6 +429,9 @@ class TenantServiceDynamoDB:
                     # Revalidate config after modifications
                 validated_config = TenantConfig(**new_config_dict)
 
+                if validated_config.whatsapp_access_token and not is_encrypted(validated_config.whatsapp_access_token):
+                    validated_config.whatsapp_access_token = encrypt_secret(validated_config.whatsapp_access_token)
+
                 new_config_dict = validated_config.model_dump(
                         mode="json"
                     )
@@ -555,7 +462,7 @@ class TenantServiceDynamoDB:
         update_item(f"TENANT#{tenant_id}", "PROFILE", update_dict)
 
         # Invalidate cache after update
-        #self.invalidate_cache(tenant_id)
+        self.invalidate_cache(tenant_id)
 
         return self.get_tenant(tenant_id)
 
@@ -571,7 +478,7 @@ class TenantServiceDynamoDB:
         # Decrement platform counter
         if result is not None:
             # Invalidate cache
-            #self.invalidate_cache(tenant_id)
+            self.invalidate_cache(tenant_id)
 
             try:
                 from app.services import analytics_service, USE_DYNAMODB
@@ -607,7 +514,7 @@ class TenantServiceDynamoDB:
         )
 
         # Invalidate cache
-        #self.invalidate_cache(tenant_id)
+        self.invalidate_cache(tenant_id)
 
         return api_key
 

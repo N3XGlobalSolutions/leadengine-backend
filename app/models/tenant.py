@@ -106,6 +106,11 @@ class TenantConfig(BaseModel):
     api_key: Optional[str] = None  # API key for widget authentication
     company_context: str = ""  # Company info for better LLM context
 
+    # WhatsApp Configuration
+    whatsapp_enabled: bool = False
+    whatsapp_access_token: Optional[str] = None
+    whatsapp_phone_number_id: Optional[str] = None
+
     #Clients domain for Widget Integration
     client_domain: Optional[str] = Field(
         default=None,

@@ -118,7 +118,7 @@ async def ingest_document(
             file.file.seek(0)
             file_content = file.file.read()
             file_buffer = io.BytesIO(file_content)
-            
+
             # Log file size for debugging
             print(f"Uploading file: {file.filename}, size: {len(file_content)} bytes")
             
@@ -157,7 +157,7 @@ async def ingest_document(
 
         # Ingest and get document_id
         from app.services import document_service
-
+        
         # 1. Create metadata record first (visible to user immediately)
         try:
             # Check if exists first to avoid double entries if retrying

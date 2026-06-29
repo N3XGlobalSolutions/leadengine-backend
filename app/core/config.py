@@ -27,28 +27,31 @@ class Settings(BaseSettings):
     )
 
     # Application Settings
-    APP_NAME: str = "AOB Bot RAG Backend"
+    APP_NAME: str = "LeadEngine Bot RAG Backend"
     DEBUG: bool = True
 
     # Environment: "development" or "production"
     APP_ENV: str = "development"
 
+    #REDIS Settings
+    REDIS_URL: str | None = None
+
     # Qdrant Settings
     Qdrant_URL: str | None = None  # Remote Qdrant URL (e.g., http://ec2-ip:6333)
     QDRANT_API_KEY: str | None = None  # API key for remote Qdrant authentication
     Qdrant_PATH: str = "data/qdrant_data"  # Local path for development
-    QDRANT_COLLECTION_NAME: str = "aob_documents"  # Auto-suffixed by _env_suffix
+    QDRANT_COLLECTION_NAME: str = "test_leadengine_documents"  # Auto-suffixed by _env_suffix
 
     # AWS Bedrock - credentials are optional (Lambda uses IAM role)
     AWS_ACCESS_KEY: str | None = None  # Optional - Lambda uses IAM role
     AWS_SECRET_KEY: str | None = None  # Optional - Lambda uses IAM role
-    AWS_REGION: str = "us-east-1"  # Default region
-    
+    AWS_REGION: str = "ap-south-1"  # Default region
+
     # Anthropic Claude
     CLAUDE_API_KEY: str | None = None
-    
-    BEDROCK_LLM_MODEL_ID: str = "us.amazon.nova-2-lite-v1:0"  # Changed from Llama 3.3
-    
+
+    BEDROCK_LLM_MODEL_ID: str = "zai.glm-5"
+
     BEDROCK_EMBEDDING_MODEL_ID: str = "amazon.titan-embed-text-v2:0"
     BEDROCK_EMBEDDING_DIMENSIONS: int = 1024  # Titan V2 uses 1024 dimensions
 
@@ -56,6 +59,11 @@ class Settings(BaseSettings):
     AWS_S3_BUCKET_NAME: str | None = None
     AWS_SQS_QUEUE_URL: str | None = None
     USE_ASYNC_INGESTION: bool = False  # Toggle for future deployment
+
+    # Outbound Campaign Settings
+    TELEGRAM_BOT_TOKEN: str | None = None  # Telegram Bot API token for outbound campaigns
+    OUTBOUND_SQS_QUEUE_URL: str | None = None  # Dedicated SQS queue for outbound campaigns
+    ENCRYPTION_KEY: str | None = None
 
     # Feature Flags
     USE_DYNAMODB: bool = False  # Toggle between MongoDB and DynamoDB
@@ -81,12 +89,12 @@ class Settings(BaseSettings):
     @property
     def CORS_ORIGINS(self) -> list[str]:
         """Parse CORS origins from comma-separated string.
-        
+
         Reads from CORS_ORIGINS env var first, falls back to CORS_ORIGINS_STR.
         """
         # Check if CORS_ORIGINS was set directly (from Lambda env var)
         cors_str = os.getenv("CORS_ORIGINS", self.CORS_ORIGINS_STR)
-        
+
         return [
             origin.strip()
             for origin in cors_str.split(",")
@@ -109,13 +117,13 @@ class Settings(BaseSettings):
         explicit = os.getenv("DYNAMODB_TABLE_NAME")
         if explicit and self.APP_ENV == "production":
             return explicit
-        return f"aob_app_data{self._env_suffix}"
+        return f"test_leadengine"
 
     @computed_field
     @property
     def EFFECTIVE_QDRANT_COLLECTION(self) -> str:
         """Auto-suffixed Qdrant collection name based on APP_ENV."""
-        return f"{self.QDRANT_COLLECTION_NAME}{self._env_suffix}"
+        return f"test_leadengine_documents"
 
     @computed_field
     @property
@@ -124,7 +132,7 @@ class Settings(BaseSettings):
         base = self.AWS_S3_BUCKET_NAME or "aob-bot-document"
         if self.APP_ENV == "production":
             return base
-        return f"{base}-dev" if not base.endswith("-dev") else base
+        return f"test-leadengine-document" #if not base.endswith("-dev") else base
 
     @computed_field
     @property
@@ -135,7 +143,7 @@ class Settings(BaseSettings):
             return base
         # Replace queue name in URL
         if "-dev" not in base:
-            return base.replace("aob-bot-ingestion-queue", "aob-bot-ingestion-queue-dev")
+            return base.replace("aob-bot-ingestion-queue", "test-ingestion-queue-leadengine")
         return base
 
 

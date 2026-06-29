@@ -14,12 +14,12 @@ set -Eeuo pipefail
 
 # ---------- Config ----------
 
-REGION="us-east-1"
-S3_BUCKET="qbot-lambda-deployment"
+REGION="ap-south-1"
+S3_BUCKET="test-lambda-leadengine"
 S3_KEY="dev/qbot-lambda.zip"
 
-LAMBDA_API="aob-bot-dev"
-LAMBDA_WORKER="qbot-sqs-worker-dev"
+LAMBDA_API="test-leadengine"
+LAMBDA_WORKER="test-leadengine-sqs-worker"
 
 # ---------- Paths ----------
 
@@ -89,8 +89,8 @@ log "📝 Commit: $COMMIT"
 log "📦 Building Lambda package..."
 bash create_lambda_package.sh
 
-if [ ! -f "qbot-lambda.zip" ]; then
-echo "❌ qbot-lambda.zip not found"
+if [ ! -f "leadengine-lambda.zip" ]; then
+echo "❌ leadengine-lambda.zip not found"
 exit 1
 fi
 
@@ -121,7 +121,7 @@ echo ""
 echo "===================================="
 echo "✅ Deployment Successful"
 echo "🌐 Environment : DEV"
-echo "🌐 URL         : test.qbotglobal.com"
+echo "🌐 URL         : leadengine.saleshubglobal.com"
 echo "🌿 Branch      : $BRANCH"
 echo "📝 Commit      : $COMMIT"
 echo "⏱ Duration    : ${DURATION}s"

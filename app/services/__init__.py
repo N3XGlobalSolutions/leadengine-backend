@@ -42,6 +42,9 @@ from app.services.analytics.analytics_service_dynamodb import (
 from app.services.audit.audit_service_dynamodb import (
     audit_service_dynamodb as audit_service,
 )
+from app.services.draft.draft_service_dynamodb import (
+    draft_service_dynamodb as draft_service,
+)
 
 # Export flag for legacy compatibility (though effectively always True now)
 USE_DYNAMODB = True
@@ -56,5 +59,6 @@ __all__ = [
     "document_service",
     "analytics_service",
     "audit_service",
+    "draft_service",
     "USE_DYNAMODB",
 ]
