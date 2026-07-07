@@ -9,7 +9,7 @@ from app.core.config import get_settings
 from app.core.logging_config import get_logger, setup_logging
 from app.middleware.exception_handlers import setup_exception_handlers
 from app.middleware.request_context import RequestContextMiddleware
-from app.routes.v1 import auth, tenants, users, chat, documents, leads, analytics, audit, outbound, drafts
+from app.routes.v1 import auth, tenants, users, chat, documents, leads, analytics, audit, outbound, drafts, outbound_webhook, outbound_ai
 
 # Initialize logging first
 setup_logging()
@@ -48,11 +48,29 @@ async def lifespan(app: FastAPI):
         worker_thread.start()
         logger.info("🚀 SQS Worker auto-started in background thread")
 
+    # Auto-start Outbound SQS worker in background thread
+    outbound_worker_thread = None
+    if getattr(settings, "OUTBOUND_SQS_QUEUE_URL", None):
+        import threading
+        from app.workers.outbound_worker import run_outbound_worker
+        
+        def outbound_worker_runner():
+            try:
+                run_outbound_worker()
+            except Exception as e:
+                logger.error(f"Outbound SQS Worker error: {e}")
+                
+        outbound_worker_thread = threading.Thread(target=outbound_worker_runner, daemon=True, name="OutboundWorker")
+        outbound_worker_thread.start()
+        logger.info("🚀 Outbound SQS Worker auto-started in background thread")
+
     yield
     
     logger.info("Application shutting down")
     if worker_thread and worker_thread.is_alive():
         logger.info("SQS Worker thread will terminate with app")
+    if outbound_worker_thread and outbound_worker_thread.is_alive():
+        logger.info("Outbound SQS Worker thread will terminate with app")
 
 
 app = FastAPI(
@@ -88,6 +106,8 @@ app.include_router(leads.router)
 app.include_router(analytics.router)
 app.include_router(audit.router)
 app.include_router(outbound.router)
+app.include_router(outbound_webhook.router)
+app.include_router(outbound_ai.router)
 app.include_router(drafts.router)
 
 

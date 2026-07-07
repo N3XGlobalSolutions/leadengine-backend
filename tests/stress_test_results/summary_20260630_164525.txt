@@ -1,0 +1,124 @@
+================================================================================
+CHATBOT STRESS TEST SUMMARY
+Generated: 2026-06-30 16:45:25
+================================================================================
+
+Users    Requests   Success%   Error%     Avg(ms)    p95(ms)    p99(ms)    RPS       
+--------------------------------------------------------------------------------
+10       60         96.7       3.3        6086       18369      56961      0.4       
+50       296        99.7       0.3        3630       11520      12653      3.9       
+100      590        100.0      0.0        4073       12900      18978      15.0      
+200      1181       99.6       0.4        3713       11366      12884      15.4      
+300      1779       93.8       6.2        6484       19653      26803      20.5      
+
+================================================================================
+DETAILED RESULTS
+================================================================================
+
+
+10 Concurrent Users:
+----------------------------------------
+  Total Duration:     140.63s
+  Total Requests:     60
+  Successful:         58
+  Failed:             2
+  Error Rate:         3.33%
+  Throughput:         0.43 req/s
+
+  Response Times:
+    Min:    1121ms
+    Avg:    6086ms
+    Median: 2137ms
+    p95:    18369ms
+    p99:    56961ms
+    Max:    56961ms
+
+  Errors:
+    TIMEOUT: 2
+
+50 Concurrent Users:
+----------------------------------------
+  Total Duration:     75.19s
+  Total Requests:     296
+  Successful:         295
+  Failed:             1
+  Error Rate:         0.34%
+  Throughput:         3.94 req/s
+
+  Response Times:
+    Min:    964ms
+    Avg:    3630ms
+    Median: 1994ms
+    p95:    11520ms
+    p99:    12653ms
+    Max:    46523ms
+
+  Errors:
+    TIMEOUT: 1
+
+100 Concurrent Users:
+----------------------------------------
+  Total Duration:     39.21s
+  Total Requests:     590
+  Successful:         590
+  Failed:             0
+  Error Rate:         0.00%
+  Throughput:         15.05 req/s
+
+  Response Times:
+    Min:    904ms
+    Avg:    4073ms
+    Median: 2089ms
+    p95:    12900ms
+    p99:    18978ms
+    Max:    19463ms
+
+200 Concurrent Users:
+----------------------------------------
+  Total Duration:     76.75s
+  Total Requests:     1181
+  Successful:         1176
+  Failed:             5
+  Error Rate:         0.42%
+  Throughput:         15.39 req/s
+
+  Response Times:
+    Min:    1026ms
+    Avg:    3713ms
+    Median: 2142ms
+    p95:    11366ms
+    p99:    12884ms
+    Max:    14739ms
+
+  Errors:
+    TIMEOUT: 5
+
+300 Concurrent Users:
+----------------------------------------
+  Total Duration:     86.86s
+  Total Requests:     1779
+  Successful:         1668
+  Failed:             111
+  Error Rate:         6.24%
+  Throughput:         20.48 req/s
+
+  Response Times:
+    Min:    921ms
+    Avg:    6484ms
+    Median: 4414ms
+    p95:    19653ms
+    p99:    26803ms
+    Max:    29236ms
+
+  Errors:
+    HTTP_504: 107
+    TIMEOUT: 4
+
+================================================================================
+RECOMMENDATIONS
+================================================================================
+
+
+❌ High error rate (6.2%) detected at 300 users.
+   Recommended maximum: 250 concurrent users
+

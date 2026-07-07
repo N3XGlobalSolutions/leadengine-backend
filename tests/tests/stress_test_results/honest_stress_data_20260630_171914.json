@@ -1,0 +1,162 @@
+{
+  "meta": {
+    "generated_at": "2026-06-30T17:19:14.303461",
+    "suite_duration_s": 109.86858970799949,
+    "base_url": "http://localhost:8000",
+    "levels": [
+      10,
+      25,
+      50,
+      100,
+      200,
+      300
+    ]
+  },
+  "levels": [
+    {
+      "concurrent_users": 10,
+      "total_requests": 40,
+      "successful_requests": 40,
+      "failed_requests": 0,
+      "total_duration_s": 2.984147416998894,
+      "rps": 13.4041635383507,
+      "lat_min": 1.6327500015904661,
+      "lat_avg": 186.87741667508817,
+      "lat_median": 84.24166650002007,
+      "lat_p75": 228.66425000029267,
+      "lat_p90": 596.1706659982156,
+      "lat_p95": 596.6554590013402,
+      "lat_p99": 597.0066250010859,
+      "lat_max": 597.3015840027074,
+      "errors": {},
+      "success_rate_pct": 100.0,
+      "error_rate_pct": 0.0,
+      "status_distribution": {
+        "200": 40
+      },
+      "started_at": "2026-06-30T17:17:24.433270",
+      "finished_at": "2026-06-30T17:17:27.417425"
+    },
+    {
+      "concurrent_users": 25,
+      "total_requests": 100,
+      "successful_requests": 100,
+      "failed_requests": 0,
+      "total_duration_s": 3.749422000000777,
+      "rps": 26.670777522503275,
+      "lat_min": 0.9815839985094499,
+      "lat_avg": 339.4260374900841,
+      "lat_median": 206.22033349900448,
+      "lat_p75": 700.6267500000831,
+      "lat_p90": 873.8450419987203,
+      "lat_p95": 875.0213749990507,
+      "lat_p99": 877.1039169987489,
+      "lat_max": 878.1510830012849,
+      "errors": {},
+      "success_rate_pct": 100.0,
+      "error_rate_pct": 0.0,
+      "status_distribution": {
+        "200": 100
+      },
+      "started_at": "2026-06-30T17:17:35.419279",
+      "finished_at": "2026-06-30T17:17:39.168732"
+    },
+    {
+      "concurrent_users": 50,
+      "total_requests": 200,
+      "successful_requests": 200,
+      "failed_requests": 0,
+      "total_duration_s": 7.610041500000079,
+      "rps": 26.28106561573914,
+      "lat_min": 0.8846250020724256,
+      "lat_avg": 1086.135408325099,
+      "lat_median": 757.6541665002878,
+      "lat_p75": 2463.6247500020545,
+      "lat_p90": 2508.6671249991923,
+      "lat_p95": 2561.317625000811,
+      "lat_p99": 2597.74445900257,
+      "lat_max": 2603.751333001128,
+      "errors": {},
+      "success_rate_pct": 100.0,
+      "error_rate_pct": 0.0,
+      "status_distribution": {
+        "200": 200
+      },
+      "started_at": "2026-06-30T17:17:47.170884",
+      "finished_at": "2026-06-30T17:17:54.780951"
+    },
+    {
+      "concurrent_users": 100,
+      "total_requests": 400,
+      "successful_requests": 400,
+      "failed_requests": 0,
+      "total_duration_s": 12.074092584000027,
+      "rps": 33.128783568386716,
+      "lat_min": 0.6371659983415157,
+      "lat_avg": 1983.2947867699204,
+      "lat_median": 1343.7803755005007,
+      "lat_p75": 4604.821625001932,
+      "lat_p90": 4624.974457998178,
+      "lat_p95": 4635.746542000561,
+      "lat_p99": 4678.662958001951,
+      "lat_max": 4700.596915998176,
+      "errors": {},
+      "success_rate_pct": 100.0,
+      "error_rate_pct": 0.0,
+      "status_distribution": {
+        "200": 400
+      },
+      "started_at": "2026-06-30T17:18:02.782662",
+      "finished_at": "2026-06-30T17:18:14.856764"
+    },
+    {
+      "concurrent_users": 200,
+      "total_requests": 800,
+      "successful_requests": 800,
+      "failed_requests": 0,
+      "total_duration_s": 18.80846295900119,
+      "rps": 42.53404447475826,
+      "lat_min": 0.5961250026302878,
+      "lat_avg": 3301.783335912519,
+      "lat_median": 2510.0320624987944,
+      "lat_p75": 6834.557499998482,
+      "lat_p90": 7454.579834000469,
+      "lat_p95": 7458.886000000348,
+      "lat_p99": 7467.441875000077,
+      "lat_max": 7468.692083002679,
+      "errors": {},
+      "success_rate_pct": 100.0,
+      "error_rate_pct": 0.0,
+      "status_distribution": {
+        "200": 800
+      },
+      "started_at": "2026-06-30T17:18:22.859197",
+      "finished_at": "2026-06-30T17:18:41.667696"
+    },
+    {
+      "concurrent_users": 300,
+      "total_requests": 1200,
+      "successful_requests": 1200,
+      "failed_requests": 0,
+      "total_duration_s": 24.630023666999477,
+      "rps": 48.721025047483785,
+      "lat_min": 0.5466249967867043,
+      "lat_avg": 4780.196945620834,
+      "lat_median": 3728.94093800096,
+      "lat_p75": 9113.304292000976,
+      "lat_p90": 9920.828124999389,
+      "lat_p95": 9929.42766700071,
+      "lat_p99": 9940.59033299709,
+      "lat_max": 9946.303290998912,
+      "errors": {},
+      "success_rate_pct": 100.0,
+      "error_rate_pct": 0.0,
+      "status_distribution": {
+        "200": 1200
+      },
+      "started_at": "2026-06-30T17:18:49.669807",
+      "finished_at": "2026-06-30T17:19:14.299827"
+    }
+  ],
+  "raw_requests_count": 2740
+}

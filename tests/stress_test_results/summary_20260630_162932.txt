@@ -1,0 +1,40 @@
+================================================================================
+OUTBOUND AI LIFE-CYCLE STRESS TEST SUMMARY
+Generated: 2026-06-30 16:29:32
+================================================================================
+
+Users    Requests   Success%   Error%     Avg(ms)    p95(ms)    p99(ms)    RPS       
+--------------------------------------------------------------------------------
+2        4          0.0        100.0      0          0          0          893.5     
+
+================================================================================
+DETAILED RUN BREAKDOWN
+================================================================================
+
+
+👥 2 Concurrent Users:
+----------------------------------------
+  Total Duration:     0.00s
+  Total Requests:     4
+  Successful:         0
+  Failed:             4
+  Error Rate:         100.00%
+  Throughput:         893.50 req/s
+
+  Response Times:
+    Min:    0ms
+    Avg:    0ms
+    Median: 0ms
+    p95:    0ms
+    p99:    0ms
+    Max:    0ms
+
+  Errors:
+    ClientConnectorError: 4
+
+================================================================================
+SAAS PIPELINE RECOMMENDATIONS
+================================================================================
+
+⚠️ Performance constraints detected at all tested levels. Inspect Bedrock rate limits.
+

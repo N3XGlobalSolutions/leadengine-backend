@@ -259,6 +259,8 @@ class OutboundLeadService:
             items.append({
                 "PK": f"OB_CAMPAIGN#{campaign_id}",
                 "SK": f"LEAD#{lead_id}",
+                "GSI1PK": f"OB_PHONE#{lead.phone}",
+                "GSI1SK": f"CAMPAIGN#{campaign_id}",
                 "GSI2PK": f"OB_LEAD#{campaign_id}#{MessageStatus.PENDING.value}",
                 "GSI2SK": f"LEAD#{now}",
                 "lead_id": lead_id,
@@ -381,6 +383,8 @@ class OutboundLeadService:
                 raise ValueError(error)
             updates["phone"] = normalized
             updates["raw_phone"] = data.phone
+            updates["GSI1PK"] = f"OB_PHONE#{normalized}"
+            updates["GSI1SK"] = f"CAMPAIGN#{campaign_id}"
 
         if updates:
             table = get_dynamodb_table()

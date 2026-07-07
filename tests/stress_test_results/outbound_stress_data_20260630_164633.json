@@ -1,0 +1,134 @@
+[
+  {
+    "concurrent_users": 10,
+    "total_requests": 40,
+    "successful_requests": 0,
+    "failed_requests": 40,
+    "total_duration_s": 0.922109842300415,
+    "avg_ms": 0,
+    "min_ms": 0,
+    "max_ms": 0,
+    "p50_ms": 0,
+    "p75_ms": 0,
+    "p90_ms": 0,
+    "p95_ms": 0,
+    "p99_ms": 0,
+    "rps": 43.37878001628396,
+    "error_rate_pct": 100.0,
+    "errors_by_type": {
+      "CONNECTION_REFUSED": 40
+    },
+    "status": "CRITICAL",
+    "timestamp": "2026-06-30T16:46:03.749981"
+  },
+  {
+    "concurrent_users": 25,
+    "total_requests": 100,
+    "successful_requests": 0,
+    "failed_requests": 100,
+    "total_duration_s": 0.9460411071777344,
+    "avg_ms": 0,
+    "min_ms": 0,
+    "max_ms": 0,
+    "p50_ms": 0,
+    "p75_ms": 0,
+    "p90_ms": 0,
+    "p95_ms": 0,
+    "p99_ms": 0,
+    "rps": 105.70365203085497,
+    "error_rate_pct": 100.0,
+    "errors_by_type": {
+      "CONNECTION_REFUSED": 100
+    },
+    "status": "CRITICAL",
+    "timestamp": "2026-06-30T16:46:09.697916"
+  },
+  {
+    "concurrent_users": 50,
+    "total_requests": 200,
+    "successful_requests": 0,
+    "failed_requests": 200,
+    "total_duration_s": 0.9756207466125488,
+    "avg_ms": 0,
+    "min_ms": 0,
+    "max_ms": 0,
+    "p50_ms": 0,
+    "p75_ms": 0,
+    "p90_ms": 0,
+    "p95_ms": 0,
+    "p99_ms": 0,
+    "rps": 204.9976906440537,
+    "error_rate_pct": 100.0,
+    "errors_by_type": {
+      "CONNECTION_REFUSED": 200
+    },
+    "status": "CRITICAL",
+    "timestamp": "2026-06-30T16:46:15.675239"
+  },
+  {
+    "concurrent_users": 100,
+    "total_requests": 400,
+    "successful_requests": 0,
+    "failed_requests": 400,
+    "total_duration_s": 1.0252761840820312,
+    "avg_ms": 0,
+    "min_ms": 0,
+    "max_ms": 0,
+    "p50_ms": 0,
+    "p75_ms": 0,
+    "p90_ms": 0,
+    "p95_ms": 0,
+    "p99_ms": 0,
+    "rps": 390.13878036983294,
+    "error_rate_pct": 100.0,
+    "errors_by_type": {
+      "CONNECTION_REFUSED": 400
+    },
+    "status": "CRITICAL",
+    "timestamp": "2026-06-30T16:46:21.702242"
+  },
+  {
+    "concurrent_users": 200,
+    "total_requests": 800,
+    "successful_requests": 0,
+    "failed_requests": 800,
+    "total_duration_s": 1.0799708366394043,
+    "avg_ms": 0,
+    "min_ms": 0,
+    "max_ms": 0,
+    "p50_ms": 0,
+    "p75_ms": 0,
+    "p90_ms": 0,
+    "p95_ms": 0,
+    "p99_ms": 0,
+    "rps": 740.7607435858151,
+    "error_rate_pct": 100.0,
+    "errors_by_type": {
+      "CONNECTION_REFUSED": 800
+    },
+    "status": "CRITICAL",
+    "timestamp": "2026-06-30T16:46:27.783795"
+  },
+  {
+    "concurrent_users": 300,
+    "total_requests": 1200,
+    "successful_requests": 0,
+    "failed_requests": 1200,
+    "total_duration_s": 1.1482150554656982,
+    "avg_ms": 0,
+    "min_ms": 0,
+    "max_ms": 0,
+    "p50_ms": 0,
+    "p75_ms": 0,
+    "p90_ms": 0,
+    "p95_ms": 0,
+    "p99_ms": 0,
+    "rps": 1045.100388022084,
+    "error_rate_pct": 100.0,
+    "errors_by_type": {
+      "CONNECTION_REFUSED": 1200
+    },
+    "status": "CRITICAL",
+    "timestamp": "2026-06-30T16:46:33.933577"
+  }
+]

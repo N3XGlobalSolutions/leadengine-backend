@@ -24,3 +24,27 @@ from app.models.outbound.audit import (
     CampaignAuditAction,
     CampaignAuditCreate,
 )
+from app.models.outbound.outbound_entities import (
+    ConversationStage,
+    ConversationStageManager,
+    OutboundConversation,
+    OutboundAIMessage,
+    OutboundMemory,
+    OutboundProduct,
+    OutboundAgentSettings,
+    OutboundCalendarSettings,
+    OutboundCalendarMeeting,
+    OutboundConversationAnalytics,
+)
+from app.models.outbound.outbound_enterprise_entities import (
+    CustomerIntentType,
+    SalesGoal,
+    ObjectionType,
+    CustomerPersona,
+    LeadQualification,
+    ConversationHealth,
+    MultiStepPlan,
+    AIReasoningMetadata,
+    SalesMemory,
+)
+

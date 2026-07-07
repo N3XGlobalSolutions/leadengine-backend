@@ -1,0 +1,102 @@
+[
+  {
+    "concurrent_users": 10,
+    "total_requests": 59,
+    "successful_requests": 23,
+    "failed_requests": 36,
+    "total_duration": 142.68629598617554,
+    "avg_response_time": 10.298840481302012,
+    "min_response_time": 1.61753511428833,
+    "max_response_time": 28.534338235855103,
+    "p50_response_time": 9.63002610206604,
+    "p95_response_time": 27.342811107635498,
+    "p99_response_time": 28.534338235855103,
+    "requests_per_second": 0.4134945097020133,
+    "error_rate": 61.016949152542374,
+    "errors_by_type": {
+      "HTTP_504": 16,
+      "HTTP_500": 20
+    },
+    "timestamp": "2026-06-30T15:57:06.892748"
+  },
+  {
+    "concurrent_users": 50,
+    "total_requests": 298,
+    "successful_requests": 16,
+    "failed_requests": 282,
+    "total_duration": 128.0365378856659,
+    "avg_response_time": 11.406630203127861,
+    "min_response_time": 1.488581895828247,
+    "max_response_time": 27.061073064804077,
+    "p50_response_time": 8.440478086471558,
+    "p95_response_time": 27.061073064804077,
+    "p99_response_time": 27.061073064804077,
+    "requests_per_second": 2.327460621171342,
+    "error_rate": 94.63087248322147,
+    "errors_by_type": {
+      "HTTP_500": 268,
+      "HTTP_504": 14
+    },
+    "timestamp": "2026-06-30T15:59:24.932806"
+  },
+  {
+    "concurrent_users": 100,
+    "total_requests": 591,
+    "successful_requests": 15,
+    "failed_requests": 576,
+    "total_duration": 106.9170241355896,
+    "avg_response_time": 12.05577810605367,
+    "min_response_time": 1.6352829933166504,
+    "max_response_time": 22.147352933883667,
+    "p50_response_time": 12.215424060821533,
+    "p95_response_time": 22.147352933883667,
+    "p99_response_time": 22.147352933883667,
+    "requests_per_second": 5.527651043209994,
+    "error_rate": 97.46192893401016,
+    "errors_by_type": {
+      "HTTP_500": 566,
+      "HTTP_504": 10
+    },
+    "timestamp": "2026-06-30T16:01:21.855530"
+  },
+  {
+    "concurrent_users": 200,
+    "total_requests": 1182,
+    "successful_requests": 13,
+    "failed_requests": 1169,
+    "total_duration": 113.91173386573792,
+    "avg_response_time": 12.722105007905226,
+    "min_response_time": 1.7323970794677734,
+    "max_response_time": 28.34913420677185,
+    "p50_response_time": 11.311630010604858,
+    "p95_response_time": 28.34913420677185,
+    "p99_response_time": 28.34913420677185,
+    "requests_per_second": 10.376455171801393,
+    "error_rate": 98.90016920473774,
+    "errors_by_type": {
+      "HTTP_500": 1158,
+      "HTTP_504": 11
+    },
+    "timestamp": "2026-06-30T16:03:25.773968"
+  },
+  {
+    "concurrent_users": 300,
+    "total_requests": 1773,
+    "successful_requests": 14,
+    "failed_requests": 1759,
+    "total_duration": 131.15435409545898,
+    "avg_response_time": 15.19384161063603,
+    "min_response_time": 2.132513999938965,
+    "max_response_time": 28.232672929763794,
+    "p50_response_time": 16.891605615615845,
+    "p95_response_time": 28.232672929763794,
+    "p99_response_time": 28.232672929763794,
+    "requests_per_second": 13.518422718238886,
+    "error_rate": 99.21037789058093,
+    "errors_by_type": {
+      "HTTP_500": 1744,
+      "HTTP_504": 15
+    },
+    "timestamp": "2026-06-30T16:05:46.945955"
+  }
+]

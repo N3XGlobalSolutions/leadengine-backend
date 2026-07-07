@@ -1,0 +1,96 @@
+[
+  {
+    "concurrent_users": 10,
+    "total_requests": 60,
+    "successful_requests": 58,
+    "failed_requests": 2,
+    "total_duration": 140.62669587135315,
+    "avg_response_time": 6.086352130462384,
+    "min_response_time": 1.1211259365081787,
+    "max_response_time": 56.96138286590576,
+    "p50_response_time": 2.1371134519577026,
+    "p95_response_time": 18.369264125823975,
+    "p99_response_time": 56.96138286590576,
+    "requests_per_second": 0.42666152132941143,
+    "error_rate": 3.3333333333333335,
+    "errors_by_type": {
+      "TIMEOUT": 2
+    },
+    "timestamp": "2026-06-30T16:40:07.445050"
+  },
+  {
+    "concurrent_users": 50,
+    "total_requests": 296,
+    "successful_requests": 295,
+    "failed_requests": 1,
+    "total_duration": 75.1886568069458,
+    "avg_response_time": 3.6295647604990813,
+    "min_response_time": 0.96380615234375,
+    "max_response_time": 46.52272415161133,
+    "p50_response_time": 1.9941718578338623,
+    "p95_response_time": 11.520025968551636,
+    "p99_response_time": 12.653288841247559,
+    "requests_per_second": 3.9367640355646842,
+    "error_rate": 0.33783783783783783,
+    "errors_by_type": {
+      "TIMEOUT": 1
+    },
+    "timestamp": "2026-06-30T16:41:32.637499"
+  },
+  {
+    "concurrent_users": 100,
+    "total_requests": 590,
+    "successful_requests": 590,
+    "failed_requests": 0,
+    "total_duration": 39.2126898765564,
+    "avg_response_time": 4.072563945640952,
+    "min_response_time": 0.9038312435150146,
+    "max_response_time": 19.46338701248169,
+    "p50_response_time": 2.0885138511657715,
+    "p95_response_time": 12.900266885757446,
+    "p99_response_time": 18.977863073349,
+    "requests_per_second": 15.046149648426336,
+    "error_rate": 0.0,
+    "errors_by_type": {},
+    "timestamp": "2026-06-30T16:42:21.867604"
+  },
+  {
+    "concurrent_users": 200,
+    "total_requests": 1181,
+    "successful_requests": 1176,
+    "failed_requests": 5,
+    "total_duration": 76.75257897377014,
+    "avg_response_time": 3.713428084947625,
+    "min_response_time": 1.0258231163024902,
+    "max_response_time": 14.739405870437622,
+    "p50_response_time": 2.14154052734375,
+    "p95_response_time": 11.365650177001953,
+    "p99_response_time": 12.884376764297485,
+    "requests_per_second": 15.387105108267457,
+    "error_rate": 0.42337002540220153,
+    "errors_by_type": {
+      "TIMEOUT": 5
+    },
+    "timestamp": "2026-06-30T16:43:48.627962"
+  },
+  {
+    "concurrent_users": 300,
+    "total_requests": 1779,
+    "successful_requests": 1668,
+    "failed_requests": 111,
+    "total_duration": 86.86029696464539,
+    "avg_response_time": 6.483998368112303,
+    "min_response_time": 0.9210550785064697,
+    "max_response_time": 29.236320972442627,
+    "p50_response_time": 4.4141234159469604,
+    "p95_response_time": 19.653301000595093,
+    "p99_response_time": 26.802814960479736,
+    "requests_per_second": 20.481164147114345,
+    "error_rate": 6.239460370994941,
+    "errors_by_type": {
+      "HTTP_504": 107,
+      "TIMEOUT": 4
+    },
+    "timestamp": "2026-06-30T16:45:25.520394"
+  }
+]
