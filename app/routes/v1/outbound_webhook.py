@@ -1,7 +1,8 @@
 """WhatsApp Webhook Router for incoming customer messages."""
 
+import hashlib
+import hmac
 import json
-import os
 import uuid
 from typing import Any, Dict, Optional
 import boto3
@@ -20,8 +21,28 @@ settings = get_settings()
 
 router = APIRouter(prefix="/api/outbound", tags=["Outbound Webhooks"])
 
-# Hub Verify Token for Facebook Setup
-VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN", "leadengine_verify_token")
+# Hub Verify Token for the Meta GET handshake — no hardcoded fallback.
+VERIFY_TOKEN = settings.WHATSAPP_VERIFY_TOKEN
+
+
+def _verify_meta_signature(raw_body: bytes, signature_header: Optional[str]) -> bool:
+    """Verify the Meta X-Hub-Signature-256 HMAC over the raw request body.
+
+    Returns True only when the signature is present, well-formed, and matches an
+    HMAC-SHA256 of the body keyed by WHATSAPP_APP_SECRET. If no app secret is
+    configured we fail closed (reject) rather than trusting unsigned payloads.
+    """
+    app_secret = settings.WHATSAPP_APP_SECRET
+    if not app_secret:
+        logger.error("[Webhook] WHATSAPP_APP_SECRET not configured; rejecting inbound webhook.")
+        return False
+    if not signature_header or not signature_header.startswith("sha256="):
+        return False
+    expected = hmac.new(
+        app_secret.encode("utf-8"), raw_body, hashlib.sha256
+    ).hexdigest()
+    provided = signature_header.split("=", 1)[1]
+    return hmac.compare_digest(expected, provided)
 
 
 # ── 1. HUB VERIFICATION (GET) ─────────────────────────────────────────
@@ -33,11 +54,19 @@ async def verify_webhook(
     hub_challenge: Optional[str] = Query(None, alias="hub.challenge"),
 ):
     """Facebook Webhook verification endpoint."""
-    if hub_mode == "subscribe" and hub_verify_token == VERIFY_TOKEN:
+    if not VERIFY_TOKEN:
+        logger.error("[Webhook] WHATSAPP_VERIFY_TOKEN not configured.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Webhook not configured",
+        )
+    if hub_mode == "subscribe" and hub_verify_token and hmac.compare_digest(
+        hub_verify_token, VERIFY_TOKEN
+    ):
         logger.info("[Webhook] Webhook verified successfully by Meta.")
         return hub_challenge
-    
-    logger.warning(f"[Webhook] Failed verify handshake. Token: {hub_verify_token}")
+
+    logger.warning("[Webhook] Failed verify handshake.")
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Verification token mismatch"
@@ -49,15 +78,26 @@ async def verify_webhook(
 @router.post("/webhook")
 async def process_webhook(
     request: Request,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256"),
 ):
     """WhatsApp Incoming replies webhook handler."""
+    # 0. Authenticity: verify Meta's HMAC signature over the RAW body before
+    # trusting anything in the payload (prevents forged inbound messages).
+    raw_body = await request.body()
+    if not _verify_meta_signature(raw_body, x_hub_signature_256):
+        logger.warning("[Webhook] Rejected inbound webhook: invalid or missing signature.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook signature",
+        )
+
     try:
-        payload = await request.json()
+        payload = json.loads(raw_body)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
 
-    logger.debug(f"[Webhook] Inbound payload: {json.dumps(payload)}")
+    logger.debug("[Webhook] Inbound payload received")
 
     # 1. Parse payload fields
     entry = payload.get("entry", [])
@@ -126,8 +166,26 @@ async def process_webhook(
         logger.info(f"[Webhook] No active lead match found for {normalized_phone}. Ignoring message.")
         return {"status": "ignored", "reason": "No campaign lead associated"}
 
-    # Match the most recent lead
-    lead_item = items[-1]
+    # Disambiguate when the same phone participates in multiple tenants' campaigns.
+    # Prefer the lead owned by the tenant whose WhatsApp business number received
+    # this message (metadata.phone_number_id); otherwise pick the most recently
+    # updated lead deterministically and log the ambiguity for investigation.
+    recipient_phone_id = value.get("metadata", {}).get("phone_number_id")
+    distinct_tenants = {i.get("tenant_id") for i in items}
+    if len(distinct_tenants) > 1:
+        logger.warning(
+            "[Webhook] Phone maps to multiple tenants; disambiguating",
+            extra={"extra_data": {
+                "tenant_count": len(distinct_tenants),
+                "recipient_phone_id": recipient_phone_id,
+            }},
+        )
+        scoped = [i for i in items if i.get("phone_number_id") == recipient_phone_id] if recipient_phone_id else []
+        candidates = scoped or items
+    else:
+        candidates = items
+
+    lead_item = max(candidates, key=lambda i: i.get("updated_at") or i.get("created_at") or "")
     tenant_id = lead_item["tenant_id"]
     campaign_id = lead_item["campaign_id"]
     lead_id = lead_item["lead_id"]

@@ -34,7 +34,7 @@ def run_worker():
         region_name=REGION,
         # IAM role or default credentials auto-detected
     )
-    logger.info(f"🚀 Worker Service started. Polling: {SQS_URL}")
+    logger.info(f"Worker Service started. Polling: {SQS_URL}")
 
     while True:
         try:
@@ -45,7 +45,7 @@ def run_worker():
 
             if "Messages" in response:
                 for msg in response["Messages"]:
-                    logger.info(f"📨 Message received: {msg['MessageId']}")
+                    logger.info(f"Message received: {msg['MessageId']}")
 
                     # Construct Lambda-like event
                     event = {"Records": [{"body": msg["Body"]}]}
@@ -58,9 +58,9 @@ def run_worker():
                         sqs.delete_message(
                             QueueUrl=SQS_URL, ReceiptHandle=msg["ReceiptHandle"]
                         )
-                        logger.info("✅ Message processed and deleted.")
+                        logger.info("Message processed and deleted.")
                     except Exception as e:
-                        logger.error(f"❌ Processing failed: {e}")
+                        logger.error("Processing failed", exc_info=True)
                         # Do not delete; let VisibilityTimeout handle retry
 
             else:
@@ -68,10 +68,10 @@ def run_worker():
                 pass
 
         except KeyboardInterrupt:
-            logger.info("🛑 Worker stopped by user.")
+            logger.info("Worker stopped by user.")
             break
         except Exception as e:
-            logger.error(f"⚠️ Polling error: {e}")
+            logger.error("Polling error", exc_info=True)
             time.sleep(5)
 
 

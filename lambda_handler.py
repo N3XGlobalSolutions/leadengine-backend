@@ -1,18 +1,13 @@
-import sys
-import os
+"""AWS Lambda entrypoint (API via Mangum).
 
-print("--- DEBUG LAMBDA START ---")
-print("CWD:", os.getcwd())
-print("SYS.PATH:", sys.path)
-print("FILES:", os.listdir('.'))
-
-try:
-    import mangum
-    print("MANGUM IMPORT PATH:", mangum.__file__)
-except Exception as e:
-    print("MANGUM IMPORT FAILED:", repr(e))
+NOTE: This wraps the FastAPI app for API Gateway/ALB events only. Background SQS
+worker threads started in the FastAPI lifespan do NOT run under Lambda
+(lifespan is disabled). SQS processing must be wired as a dedicated
+SQS-event-source Lambda/worker service. See MANUAL_ACTIONS_REQUIRED.md.
+"""
 
 from mangum import Mangum
+
 from main import app
 
 handler = Mangum(app, lifespan="off")

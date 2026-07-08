@@ -248,8 +248,12 @@ async def upload_leads(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except ImportError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except ImportError:
+        logger.error("Product import dependency missing", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Import failed due to a server configuration issue.",
+        )
 
     # Update campaign metadata
     summary.s3_file_key = s3_key

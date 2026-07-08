@@ -884,7 +884,6 @@ class S2ChatStateMachine:
         if "maybe later" in user_message.lower():
             s2_out = self._get_stored_s2_output(current_data)
             priority = current_data.get("_s2_priority", "Medium")
-            print("hello world", priority, s2_out, current_data)
 
             if s2_out:
                 if priority == "High":

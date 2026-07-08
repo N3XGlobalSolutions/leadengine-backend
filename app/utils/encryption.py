@@ -1,5 +1,7 @@
 """Encryption utilities for protecting sensitive credentials."""
 
+import os
+
 from cryptography.fernet import Fernet
 from app.core.config import get_settings
 from app.core.logging_config import get_logger
@@ -7,23 +9,28 @@ from app.core.logging_config import get_logger
 logger = get_logger(__name__)
 settings = get_settings()
 
+_is_dev = settings.APP_ENV == "development"
+
 # Initialize Fernet key
-_key = getattr(settings, "ENCRYPTION_KEY", None)
+_key = getattr(settings, "ENCRYPTION_KEY", None) or os.getenv("ENCRYPTION_KEY")
 
 if not _key:
-    import os
-    _key = os.getenv("ENCRYPTION_KEY")
-
-if not _key:
-    logger.warning("ENCRYPTION_KEY not set in configuration! Generating a temporary fallback key.")
+    if not _is_dev:
+        # Fail fast outside development: a per-process ephemeral key would make
+        # data encrypted by one instance undecryptable by another (silent data loss).
+        raise RuntimeError(
+            "ENCRYPTION_KEY is required when APP_ENV is not 'development'."
+        )
+    logger.warning("ENCRYPTION_KEY not set! Generating a temporary DEV-ONLY fallback key.")
     _key = Fernet.generate_key().decode()
 
 try:
     fernet = Fernet(_key.encode() if isinstance(_key, str) else _key)
 except Exception as e:
-    logger.error(f"Invalid ENCRYPTION_KEY: {e}. Generating a temporary fallback key.")
-    fallback_key = Fernet.generate_key()
-    fernet = Fernet(fallback_key)
+    if not _is_dev:
+        raise RuntimeError(f"Invalid ENCRYPTION_KEY: {e}") from e
+    logger.error(f"Invalid ENCRYPTION_KEY: {e}. Generating a temporary DEV-ONLY fallback key.")
+    fernet = Fernet(Fernet.generate_key())
 
 
 def encrypt_secret(value: str) -> str:

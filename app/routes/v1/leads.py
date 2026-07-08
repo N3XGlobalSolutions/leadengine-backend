@@ -3,14 +3,21 @@ import csv
 import io
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from starlette.responses import StreamingResponse
 
 
+from app.core.logging_config import get_logger
 from app.models.lead import Lead, LeadCreate, LeadStatus
 from app.models.user import UserResponse
 from app.services import conversation_service, lead_service
-from app.utils.dependencies import get_current_user, validate_tenant_access
+from app.utils.dependencies import (
+    get_current_user,
+    validate_tenant_access,
+    validate_tenant_write_access,
+)
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/leads", tags=["Leads"])
 
@@ -29,9 +36,11 @@ async def create_lead(lead_data: LeadCreate):
         # Mark conversation as having captured lead
         conversation_service.mark_lead_captured(lead_data.conversation_id)
         return lead
-    except Exception as e:
+    except Exception:
+        logger.error("Lead creation failed", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to capture lead. Please try again later.",
         )
 
 
@@ -65,8 +74,8 @@ async def update_lead_status(
             status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found"
         )
 
-    # Validate user has access to this lead's tenant
-    await validate_tenant_access(lead.tenant_id, current_user)
+    # Mutating a lead requires WRITE access (sales team is read-only cross-tenant)
+    await validate_tenant_write_access(lead.tenant_id, current_user)
 
     # Update the status
     updated_lead = lead_service.update_lead_status(lead_id, new_status)
@@ -83,8 +92,8 @@ async def update_lead_status(
 async def get_tenant_leads(
     tenant_id: str,
     status: Optional[LeadStatus] = None,
-    skip: int = 0,
-    limit: int = 10000,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(500, ge=1, le=1000),  # bounded to prevent unbounded reads
     current_user: UserResponse = Depends(get_current_user),
 ):
     """Get all leads for a tenant, optionally filtered by status (requires auth and tenant access)."""
@@ -95,9 +104,11 @@ async def get_tenant_leads(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
+        logger.error("Failed to list tenant leads", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list leads. Please try again later.",
         )
 
 @router.get("/tenants/{tenant_id}/export")
@@ -152,8 +163,9 @@ async def export_tenant_leads(
     except HTTPException:
         raise
 
-    except Exception as e:
+    except Exception:
+        logger.error("Failed to export tenant leads", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            detail="Failed to export leads. Please try again later.",
         )

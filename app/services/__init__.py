@@ -15,10 +15,20 @@ load_dotenv()
 # Read configuration
 # Use DynamoDB Services indefinitely as per migration plan
 from app.core.config import get_settings as _get_settings
+from app.core.logging_config import get_logger as _get_logger
+
 _settings = _get_settings()
 _env = _settings.APP_ENV.upper()
-print(f"🔄 Using DynamoDB services [{_env}]")
-print(f"   Table: {_settings.DYNAMODB_TABLE_NAME} | Qdrant: {_settings.EFFECTIVE_QDRANT_COLLECTION}")
+_logger = _get_logger(__name__)
+# ASCII-only logging (emoji in print() crashes on Windows cp1252 consoles).
+_logger.info(
+    "Using DynamoDB services",
+    extra={"extra_data": {
+        "env": _env,
+        "table": _settings.DYNAMODB_TABLE_NAME,
+        "qdrant_collection": _settings.EFFECTIVE_QDRANT_COLLECTION,
+    }},
+)
 
 # Import DynamoDB services
 from app.services.user.user_service_dynamodb import (

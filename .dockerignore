@@ -1,0 +1,37 @@
+# Secrets & local env — must never enter the image
+.env
+.env.*
+*.pem
+*.key
+
+# Virtualenvs / caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# VCS & IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Tests, local data, and generated artifacts
+tests/
+data/
+*.log
+test_out.txt
+verify_output.txt
+user_check_results.txt
+user_service_test_output.txt
+git_log.txt
+git_log_utf8.txt
+
+# Docs / build packaging
+*.md
+qbot-lambda.zip
+leadengine-lambda.zip

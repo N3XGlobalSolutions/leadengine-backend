@@ -10,8 +10,10 @@ from botocore.exceptions import ClientError
 from functools import lru_cache
 
 from app.core.config import get_settings
+from app.core.logging_config import get_logger
 
 settings = get_settings()
+logger = get_logger(__name__)
 
 
 class DynamoDBClient:
@@ -72,7 +74,7 @@ def get_item(pk: str, sk: str) -> Optional[Dict[str, Any]]:
         response = table.get_item(Key={"PK": pk, "SK": sk})
         return response.get("Item")
     except ClientError as e:
-        print(f"Error getting item: {e}")
+        logger.error("Error getting item from DynamoDB", exc_info=True)
         return None
 
 
@@ -83,7 +85,7 @@ def put_item(item: Dict[str, Any]) -> bool:
         table.put_item(Item=item)
         return True
     except ClientError as e:
-        print(f"Error putting item: {e}")
+        logger.error("Error putting item to DynamoDB", exc_info=True)
         return False
 
 
@@ -115,7 +117,7 @@ def update_item(pk: str, sk: str, updates: Dict[str, Any]) -> Optional[Dict[str,
         )
         return response.get("Attributes")
     except ClientError as e:
-        print(f"Error updating item: {e}")
+        logger.error("Error updating item in DynamoDB", exc_info=True)
         return None
 
 
@@ -126,7 +128,7 @@ def delete_item(pk: str, sk: str) -> bool:
         table.delete_item(Key={"PK": pk, "SK": sk})
         return True
     except ClientError as e:
-        print(f"Error deleting item: {e}")
+        logger.error("Error deleting item from DynamoDB", exc_info=True)
         return False
 
 
@@ -166,7 +168,7 @@ def query_items(
         response = table.query(**query_params)
         return response.get("Items", [])
     except ClientError as e:
-        print(f"Error querying items: {e}")
+        logger.error("Error querying items from DynamoDB", exc_info=True)
         return []
 
 
@@ -211,7 +213,7 @@ def count_items(
                 
         return total_count
     except ClientError as e:
-        print(f"Error querying item count: {e}")
+        logger.error("Error counting items in DynamoDB", exc_info=True)
         return 0
 
 
@@ -225,7 +227,7 @@ def batch_write(items: List[Dict[str, Any]]) -> bool:
                 batch.put_item(Item=item)
         return True
     except ClientError as e:
-        print(f"Error batch writing items: {e}")
+        logger.error("Error batch writing items to DynamoDB", exc_info=True)
         return False
 
 
@@ -239,7 +241,7 @@ def batch_get(keys: List[Dict[str, str]]) -> List[Dict[str, Any]]:
         )
         return response.get("Responses", {}).get(table.name, [])
     except ClientError as e:
-        print(f"Error batch getting items: {e}")
+        logger.error("Error batch getting items from DynamoDB", exc_info=True)
         return []
 
 

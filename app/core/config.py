@@ -4,7 +4,7 @@ from functools import lru_cache
 import os
 from dotenv import load_dotenv
 
-from pydantic import computed_field
+from pydantic import computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Load environment variables from .env file
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # Application Settings
     APP_NAME: str = "LeadEngine Bot RAG Backend"
-    DEBUG: bool = True
+    DEBUG: bool = False  # Safe default; must be explicitly enabled in dev
 
     # Environment: "development" or "production"
     APP_ENV: str = "development"
@@ -65,13 +65,24 @@ class Settings(BaseSettings):
     OUTBOUND_SQS_QUEUE_URL: str | None = None  # Dedicated SQS queue for outbound campaigns
     ENCRYPTION_KEY: str | None = None
 
+    # WhatsApp / Meta Webhook Security
+    WHATSAPP_VERIFY_TOKEN: str | None = None  # Meta webhook GET handshake token (no hardcoded default)
+    WHATSAPP_APP_SECRET: str | None = None  # Meta App Secret for X-Hub-Signature-256 HMAC verification
+
+    # Document upload limits
+    MAX_UPLOAD_SIZE_MB: int = 25  # Reject uploads larger than this (DoS protection)
+    ALLOWED_UPLOAD_EXTENSIONS: str = "pdf,docx,txt"  # Comma-separated allowlist
+
+    # Chat endpoint security: require a verified API/widget key (no anonymous tenant_id trust)
+    CHAT_REQUIRE_KEY: bool = True
+
     # Feature Flags
     USE_DYNAMODB: bool = False  # Toggle between MongoDB and DynamoDB
 
     # JWT Settings - No default to force explicit configuration
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # Short-lived access tokens (was 720 = 12h)
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS Settings - can be set via CORS_ORIGINS or CORS_ORIGINS_STR
@@ -84,6 +95,8 @@ class Settings(BaseSettings):
     # Rate Limiting Settings
     RATE_LIMIT_DEFAULT: str = "100/minute"
     RATE_LIMIT_CHAT: str = "10/minute"
+    RATE_LIMIT_AUTH: str = "5/minute"  # Brute-force protection on login/refresh
+    RATE_LIMIT_INGEST: str = "20/minute"  # Document ingestion (cost/DoS protection)
 
     @computed_field
     @property
@@ -112,27 +125,68 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def DYNAMODB_TABLE_NAME(self) -> str:
-        """Auto-suffixed DynamoDB table name based on APP_ENV."""
-        # Allow explicit override via env var
+        """Resolve the DynamoDB table name.
+
+        Production REQUIRES an explicit DYNAMODB_TABLE_NAME env var so prod can
+        never silently fall back to the shared test table. Dev/staging default
+        to the test table.
+        """
         explicit = os.getenv("DYNAMODB_TABLE_NAME")
-        if explicit and self.APP_ENV == "production":
+        if explicit:
             return explicit
-        return f"test_leadengine"
+        if self.APP_ENV == "production":
+            raise RuntimeError(
+                "DYNAMODB_TABLE_NAME must be set explicitly when APP_ENV=production "
+                "(refusing to fall back to the shared 'test_leadengine' table)."
+            )
+        return "test_leadengine"
 
     @computed_field
     @property
     def EFFECTIVE_QDRANT_COLLECTION(self) -> str:
-        """Auto-suffixed Qdrant collection name based on APP_ENV."""
-        return f"test_leadengine_documents"
+        """Resolve the Qdrant collection name, isolating prod from test data."""
+        name = os.getenv("QDRANT_COLLECTION_NAME") or self.QDRANT_COLLECTION_NAME
+        if self.APP_ENV == "production":
+            if not name or name.startswith("test_"):
+                raise RuntimeError(
+                    "QDRANT_COLLECTION_NAME must be set to a non-test value when "
+                    "APP_ENV=production (got: %r)." % name
+                )
+            return name
+        return name or "test_leadengine_documents"
 
     @computed_field
     @property
     def EFFECTIVE_S3_BUCKET(self) -> str:
-        """Auto-suffixed S3 bucket name based on APP_ENV."""
-        base = self.AWS_S3_BUCKET_NAME or "aob-bot-document"
+        """Resolve the S3 bucket name, isolating prod from test data."""
+        base = self.AWS_S3_BUCKET_NAME
         if self.APP_ENV == "production":
+            if not base or base.startswith("test-"):
+                raise RuntimeError(
+                    "AWS_S3_BUCKET_NAME must be set to a non-test bucket when "
+                    "APP_ENV=production (got: %r)." % base
+                )
             return base
-        return f"test-leadengine-document" #if not base.endswith("-dev") else base
+        return base or "test-leadengine-document"
+
+    @model_validator(mode="after")
+    def _validate_production_safety(self):
+        """Fail fast on unsafe production configuration."""
+        if self.APP_ENV == "production":
+            errors: list[str] = []
+            if self.DEBUG:
+                errors.append("DEBUG must be False in production")
+            if not self.REDIS_URL:
+                errors.append("REDIS_URL is required in production")
+            if not self.ENCRYPTION_KEY:
+                errors.append("ENCRYPTION_KEY is required in production")
+            if not self.JWT_SECRET_KEY or len(self.JWT_SECRET_KEY) < 32:
+                errors.append("JWT_SECRET_KEY must be at least 32 characters in production")
+            if errors:
+                raise ValueError(
+                    "Unsafe production configuration: " + "; ".join(errors)
+                )
+        return self
 
     @computed_field
     @property

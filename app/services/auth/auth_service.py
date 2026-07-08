@@ -12,6 +12,9 @@ from app.utils.security import (
     decode_token,
     verify_password,
 )
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class AuthService:
@@ -55,7 +58,7 @@ class AuthService:
                 )
             )
         except Exception as e:
-            print(f"Warning: Failed to create audit log for login: {e}")
+            logger.warning("Failed to create audit log for login", exc_info=True)
 
         # Create tokens
         token_data = {

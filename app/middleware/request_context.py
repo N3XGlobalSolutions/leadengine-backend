@@ -8,7 +8,6 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from app.core.logging_config import get_logger, request_id_var, tenant_id_var
-from app.services.tenant.tenant_service_dynamodb import tenant_service_dynamodb
 
 logger = get_logger(__name__)
 
@@ -23,10 +22,6 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
         # Set context variables for logging
         request_id_token = request_id_var.set(request_id)
-        origin = request.headers.get("Origin")
-
-        if origin:
-            origin = origin.lower().rstrip("/")
 
         # Extract tenant ID from header if present
         tenant_id = request.headers.get("X-Tenant-Id")
@@ -46,27 +41,12 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                     }
                 },
             )
-            # Handle preflight requests
-            if request.method == "OPTIONS":
 
-                response = Response(status_code=200)
-
-                if origin:
-                    response.headers["Access-Control-Allow-Origin"] = origin
-
-                response.headers["Access-Control-Allow-Headers"] = (
-                    "Content-Type, Authorization, X-Tenant-ID, X-API-Key ,X-Widget-Key, X-Client-Type"
-                )
-
-                response.headers["Access-Control-Allow-Methods"] = (
-                    "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-                )
-
-                response.headers["Access-Control-Allow-Credentials"] = "true"
-                response.headers["Vary"] = "Origin"
-
-                return response
-            # Process request
+            # Process request. NOTE: CORS is handled exclusively by CORSMiddleware
+            # (the outermost middleware, configured with a strict origin whitelist).
+            # This middleware must NOT set Access-Control-* headers — doing so
+            # previously reflected any Origin with credentials and defeated the
+            # whitelist.
             response = await call_next(request)
 
             # Log request completion
@@ -79,22 +59,8 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                 },
             )
 
-            # Add request ID to response headers
+            # Add request ID to response headers (safe, non-CORS)
             response.headers["X-Request-ID"] = request_id
-
-            if origin:
-                response.headers["Access-Control-Allow-Origin"] = origin
-
-            response.headers["Access-Control-Allow-Headers"] = (
-                "Content-Type, Authorization, X-Tenant-ID, X-API-Key ,X-Widget-Key, X-Client-Type"
-            )
-
-            response.headers["Access-Control-Allow-Methods"] = (
-                "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-            )
-
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Vary"] = "Origin"
 
             return response
 

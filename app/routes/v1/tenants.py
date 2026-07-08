@@ -14,6 +14,9 @@ from app.utils.dependencies import (
     require_role,
     validate_tenant_access,
 )
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/tenants", tags=["Tenants"])
 
@@ -45,13 +48,17 @@ async def create_tenant(
                     description=f"Created tenant {new_tenant.name}"
                 )
             )
-        except Exception as e:
-            print(f"Audit log failed: {e}")
-            
+        except Exception:
+            logger.warning("Audit log failed", exc_info=True)
+
         return new_tenant
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("Tenant creation failed", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Tenant operation failed. Please try again later.",
         )
 
 @router.get("/tenants-summary")
@@ -145,8 +152,8 @@ async def update_tenant(
                 description=f"Updated tenant {tenant.name}"
             )
         )
-    except Exception as e:
-        print(f"Audit log failed: {e}")
+    except Exception:
+        logger.warning("Audit log failed", exc_info=True)
         
     return tenant
 
@@ -178,8 +185,8 @@ async def delete_tenant(
                 description=f"Deleted tenant {tenant_id}"
             )
         )
-    except Exception as e:
-        print(f"Audit log failed: {e}")
+    except Exception:
+        logger.warning("Audit log failed", exc_info=True)
 
 
 @router.get(
@@ -246,8 +253,8 @@ async def restore_tenant(
                 description=f"Restored soft-deleted tenant {tenant.name}",
             )
         )
-    except Exception as e:
-        print(f"Audit log failed: {e}")
+    except Exception:
+        logger.warning("Audit log failed", exc_info=True)
 
     return tenant
 
@@ -284,8 +291,8 @@ async def generate_api_key(
                 description=f"Generated new API key for tenant {tenant_id}"
             )
         )
-    except Exception as e:
-        print(f"Audit log failed: {e}")
+    except Exception:
+        logger.warning("Audit log failed", exc_info=True)
         
     return {"api_key": api_key, "tenant_id": tenant_id}
 

@@ -13,6 +13,14 @@ from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+# Shared HTTP client reused across all sends. A single connection pool avoids
+# the cost of establishing a new TLS connection on every message and bounds the
+# total number of concurrent outbound connections.
+_http_client = httpx.AsyncClient(
+    timeout=30,
+    limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+)
+
 
 class WhatsAppSender:
     """Sends messages via WhatsApp Cloud API."""
@@ -108,38 +116,38 @@ class WhatsAppSender:
         max_retries = 3
         for attempt in range(1, max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=30) as client:
-                    response = await client.post(url, headers=headers, json=payload)
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        messages = data.get("messages", [])
-                        msg_id = messages[0].get("id") if messages else None
-                        logger.info(f"WhatsApp message successfully sent to {to_phone} (ID: {msg_id})")
-                        return {
-                            "status": "sent",
-                            "provider": "whatsapp",
-                            "message_id": msg_id
-                        }
-                    
-                    # 5xx status codes are transient and can be retried
-                    if response.status_code >= 500:
-                        logger.warning(
-                            f"Transient WhatsApp API error (status {response.status_code}) on attempt {attempt}/{max_retries}. Retrying..."
-                        )
-                        if attempt < max_retries:
-                            await asyncio.sleep(2 ** attempt)
-                            continue
+                # Reuse the shared module-level client (connection pooling).
+                response = await _http_client.post(url, headers=headers, json=payload)
 
-                    # Non-transient error or retries exhausted
-                    error_data = response.text
-                    # Never log the request headers/authorization token, only status and body
-                    logger.error(f"WhatsApp API error response (status {response.status_code}): {error_data}")
+                if response.status_code == 200:
+                    data = response.json()
+                    messages = data.get("messages", [])
+                    msg_id = messages[0].get("id") if messages else None
+                    logger.info(f"WhatsApp message successfully sent to {to_phone} (ID: {msg_id})")
                     return {
-                        "status": "failed",
+                        "status": "sent",
                         "provider": "whatsapp",
-                        "error": f"WhatsApp API error: {response.status_code} - {error_data}"
+                        "message_id": msg_id
                     }
+
+                # 5xx status codes are transient and can be retried
+                if response.status_code >= 500:
+                    logger.warning(
+                        f"Transient WhatsApp API error (status {response.status_code}) on attempt {attempt}/{max_retries}. Retrying..."
+                    )
+                    if attempt < max_retries:
+                        await asyncio.sleep(2 ** attempt)
+                        continue
+
+                # Non-transient error or retries exhausted
+                error_data = response.text
+                # Never log the request headers/authorization token, only status and body
+                logger.error(f"WhatsApp API error response (status {response.status_code}): {error_data}")
+                return {
+                    "status": "failed",
+                    "provider": "whatsapp",
+                    "error": f"WhatsApp API error: {response.status_code} - {error_data}"
+                }
 
             except httpx.TimeoutException as e:
                 logger.warning(f"WhatsApp API timeout on attempt {attempt}/{max_retries}: {e}")

@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from fastapi import Request
 
 from app.models.conversation import (
@@ -28,34 +28,81 @@ from app.services.chat.s3_max_state_machine import s3_max_state_machine
 from app.services.chat.s3_mapping_state_machine import s3_mapping_state_machine
 from app.utils.dependencies import get_current_user, validate_tenant_access
 from app.utils.localization import get_message, get_language_name
+from app.core.config import get_settings
 from app.core.logging_config import get_logger
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 logger = get_logger(__name__)
+settings = get_settings()
 
 
 @router.post("", response_model=ChatResponse)
-async def chat(
-    request: ChatRequest, api_key: Optional[str] = Header(None, alias="X-API-Key")
+def chat(
+    request: ChatRequest,
+    http_request: Request,
+    api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    widget_key: Optional[str] = Header(None, alias="X-Widget-Key"),
 ):
     """
     Chat with the bot using State Machine Architecture.
+
+    NOTE: This is a SYNC handler on purpose. The body performs blocking I/O
+    (Bedrock/Claude LLM calls, DynamoDB, RAG). Declaring it ``def`` lets
+    Starlette run it in a worker threadpool so a slow LLM call does not block
+    the event loop / other concurrent requests (previously it was ``async def``
+    with blocking calls, serializing all traffic).
 
     Key Principles:
     - Backend controls flow via state machine
     - LLM only generates natural language responses
     - Phone number is STRICTLY MANDATORY
     - Summary is created by backend, not LLM
+
+    Security: the client-supplied tenant_id in the body is NEVER trusted on its
+    own. The effective tenant is derived from a verified credential:
+      * X-API-Key   -> server/integration key resolved to a tenant, or
+      * X-Widget-Key -> the tenant's widget key, bound to the claimed tenant_id
+                        AND a whitelisted Origin.
+    When CHAT_REQUIRE_KEY is enabled (default), a request without a valid key is
+    rejected instead of silently trusting the body tenant_id.
     """
     try:
-        # Validate authentication
+        # ---- Tenant authentication (multi-tenant isolation) ----
+        verified_tenant_id: Optional[str] = None
         if api_key:
-            tenant_id_from_key = tenant_service.validate_api_key(api_key)
-            if not tenant_id_from_key:
+            verified_tenant_id = tenant_service.validate_api_key(api_key)
+            if not verified_tenant_id:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key"
                 )
-            request.tenant_id = tenant_id_from_key
+        elif widget_key:
+            # Widget key must match the claimed tenant's configured key AND the
+            # request Origin must be whitelisted for that tenant.
+            claimed = tenant_service.get_tenant(request.tenant_id) if request.tenant_id else None
+            origin = http_request.headers.get("origin")
+            allowed_origins = getattr(getattr(claimed, "config", None), "allowed_origins", None) or []
+            widget_secret = getattr(getattr(claimed, "config", None), "api_key", None)
+            if (
+                not claimed
+                or not widget_secret
+                or widget_secret != widget_key
+                or not origin
+                or origin not in allowed_origins
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid widget key or unauthorized origin",
+                )
+            verified_tenant_id = request.tenant_id
+
+        if verified_tenant_id:
+            request.tenant_id = verified_tenant_id
+        elif settings.CHAT_REQUIRE_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="A valid API key (X-API-Key) or widget key (X-Widget-Key) is required",
+            )
+        # else (dev only): fall through trusting the body tenant_id
 
         # Get or create conversation
         if request.conversation_id:
@@ -714,10 +761,11 @@ async def chat(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Chat error: {e}", exc_info=True)
+    except Exception:
+        logger.error("Chat error", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Chat processing failed. Please try again later.",
         )
 
 
@@ -894,17 +942,19 @@ async def get_conversation_messages(
         return conversation_service.get_messages(conversation_id, limit=limit)
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
+        logger.error("Request failed", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Request failed. Please try again later.",
         )
 
 
 @router.get("/tenants/{tenant_id}/conversations", response_model=List[Conversation])
 async def get_tenant_conversations(
     tenant_id: str,
-    skip: int = 0,
-    limit: int = 10000,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(500, ge=1, le=1000),  # hard-capped (was 10000) to prevent unbounded loads
     current_user: UserResponse = Depends(get_current_user),
 ):
     """Get all conversations for a tenant (requires auth and tenant access)."""
@@ -915,9 +965,11 @@ async def get_tenant_conversations(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
+        logger.error("Request failed", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Request failed. Please try again later.",
         )
 
 
@@ -933,9 +985,11 @@ async def get_tenant_conversations_count(
         return {"count": count}
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
+        logger.error("Request failed", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Request failed. Please try again later.",
         )
 
 @router.post("/widget/validate")
@@ -944,10 +998,8 @@ async def validate_widget(
     widget_key: str = Header(..., alias="X-Widget-Key"),
     tenant_id: str = Header(..., alias="X-Tenant-Id"),
 ):
-    print(widget_key)
     # Get tenant
     tenant = tenant_service.get_tenant(tenant_id)
-    print(tenant)
     if not tenant:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

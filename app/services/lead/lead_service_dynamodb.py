@@ -8,8 +8,11 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 
 from app.core.dynamodb import get_item, put_item, update_item, query_items
+from app.core.logging_config import get_logger
 from app.models.lead import Lead, LeadCreate, LeadStatus, LeadListResponse
 from decimal import Decimal
+
+logger = get_logger(__name__)
 
 
 def _sanitize_for_dynamodb(obj):
@@ -77,7 +80,7 @@ class LeadServiceDynamoDB:
                 analytics_service.increment_platform_counter("total_leads")
         except Exception as e:
             # Don't fail lead creation if analytics fails
-            print(f"Warning: Failed to update analytics: {e}")
+            logger.warning("Failed to update lead analytics", exc_info=True)
 
         return Lead(
             lead_id=lead_id,
@@ -351,7 +354,7 @@ class LeadServiceDynamoDB:
                 analytics_service.increment_lead_status(current_lead.tenant_id, old_status, -1)
                 analytics_service.increment_lead_status(current_lead.tenant_id, new_status, 1)
         except Exception as e:
-            print(f"Warning: Failed to update analytics: {e}")
+            logger.warning("Failed to update lead analytics", exc_info=True)
 
         return self.get_lead(lead_id)
 

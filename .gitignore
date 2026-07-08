@@ -219,4 +219,41 @@ lambda_package
 lambda_package_dev
 qbot-lambda.zip
 qbot-lambda-dev.zip
+
+# ─────────────────────────────────────────────────────────────────────────
+# LeadEngine backend — project-specific
+# ─────────────────────────────────────────────────────────────────────────
+
+# Secrets: ignore every .env variant, but KEEP the committed template.
+.env
+.env.*
+!.env.example
+
+# IDE / editor (this repo currently contains these)
+.idea/
+.vscode/
+
+# Lambda build artifacts
+qbot-lambda*.zip
+leadengine-lambda*.zip
+
+# Local vector store (dev Qdrant path from config: data/qdrant_data)
+data/qdrant_data/
+
+# Debug / scratch artifacts — never commit (these were removed during hardening)
+test_out.txt
+verify_output.txt
+user_check_results.txt
+user_service_test_output.txt
+git_log.txt
+git_log_utf8.txt
+temp_*
+*.tmp
+
+# Test / coverage output
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+tests/stress_test_results/
 # .agent/

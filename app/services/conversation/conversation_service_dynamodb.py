@@ -8,6 +8,10 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict
 from decimal import Decimal
 
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 def _sanitize_for_dynamodb(obj):
     """Recursively convert float values to Decimal for DynamoDB compatibility.
@@ -85,7 +89,7 @@ class ConversationServiceDynamoDB:
                 analytics_service.increment_platform_counter("total_conversations")
         except Exception as e:
             # Don't fail conversation creation if analytics fails
-            print(f"Warning: Failed to update analytics: {e}")
+            logger.warning("Failed to update conversation analytics", exc_info=True)
 
         return Conversation(
             conversation_id=conversation_id,

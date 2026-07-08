@@ -17,6 +17,14 @@ settings = get_settings()
 # Telegram Bot API base URL
 TELEGRAM_API_BASE = "https://api.telegram.org"
 
+# Shared HTTP client reused across all sends. A single connection pool avoids
+# the cost of establishing a new TLS connection on every message and bounds the
+# total number of concurrent outbound connections.
+_http_client = httpx.AsyncClient(
+    timeout=30,
+    limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+)
+
 
 class TelegramSender:
     """Sends messages via Telegram Bot API.
@@ -56,26 +64,26 @@ class TelegramSender:
             return True, f"sim_{chat_id}", None
 
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                response = await client.post(
-                    self._get_api_url("sendMessage"),
-                    json={
-                        "chat_id": chat_id,
-                        "text": message,
-                        "parse_mode": "HTML",
-                    },
-                )
+            # Reuse the shared module-level client (connection pooling).
+            response = await _http_client.post(
+                self._get_api_url("sendMessage"),
+                json={
+                    "chat_id": chat_id,
+                    "text": message,
+                    "parse_mode": "HTML",
+                },
+            )
 
-                data = response.json()
+            data = response.json()
 
-                if data.get("ok"):
-                    msg_id = str(data["result"]["message_id"])
-                    logger.info(f"Telegram message sent to {chat_id}: {msg_id}")
-                    return True, msg_id, None
-                else:
-                    error = data.get("description", "Unknown Telegram API error")
-                    logger.error(f"Telegram send failed to {chat_id}: {error}")
-                    return False, None, error
+            if data.get("ok"):
+                msg_id = str(data["result"]["message_id"])
+                logger.info(f"Telegram message sent to {chat_id}: {msg_id}")
+                return True, msg_id, None
+            else:
+                error = data.get("description", "Unknown Telegram API error")
+                logger.error(f"Telegram send failed to {chat_id}: {error}")
+                return False, None, error
 
         except httpx.TimeoutException:
             logger.error(f"Telegram send timeout for {chat_id}")

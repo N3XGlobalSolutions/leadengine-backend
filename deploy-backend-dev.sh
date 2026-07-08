@@ -89,8 +89,10 @@ log "📝 Commit: $COMMIT"
 log "📦 Building Lambda package..."
 bash create_lambda_package.sh
 
-if [ ! -f "leadengine-lambda.zip" ]; then
-echo "❌ leadengine-lambda.zip not found"
+# create_lambda_package.sh produces qbot-lambda.zip (name must match here or the
+# deploy always aborts).
+if [ ! -f "qbot-lambda.zip" ]; then
+echo "ERROR: qbot-lambda.zip not found"
 exit 1
 fi
 

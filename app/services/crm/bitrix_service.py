@@ -39,7 +39,7 @@ def push_lead_to_bitrix(
         True if successfully created in Bitrix24, False otherwise.
     """
     if not BITRIX_WEBHOOK_URL:
-        logger.debug("BITRIX_WEBHOOK_URL not configured — skipping CRM push")
+        logger.debug("BITRIX_WEBHOOK_URL not configured - skipping CRM push")
         return False
 
     try:
@@ -80,17 +80,17 @@ def push_lead_to_bitrix(
         if response.status_code == 200:
             result = response.json()
             bitrix_lead_id = result.get("result")
-            logger.info(f"✅ Lead pushed to Bitrix24. Lead ID: {bitrix_lead_id} | Tenant: {company_name}")
+            logger.info(f"Lead pushed to Bitrix24. Lead ID: {bitrix_lead_id} | Tenant: {company_name}")
             return True
         else:
-            logger.error(f"❌ Bitrix24 API error: {response.status_code} - {response.text}")
+            logger.error(f"Bitrix24 API error: {response.status_code} - {response.text}")
             return False
 
     except httpx.TimeoutException:
-        logger.error("❌ Bitrix24 API timeout (10s)")
+        logger.error("Bitrix24 API timeout (10s)")
         return False
-    except Exception as e:
-        logger.error(f"❌ Bitrix24 push failed: {e}")
+    except Exception:
+        logger.error("Bitrix24 push failed", exc_info=True)
         return False
 
 

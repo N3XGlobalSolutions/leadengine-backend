@@ -30,7 +30,7 @@ def process_sqs_message(body_str: str) -> bool:
             logger.error("Missing required parameters in enqueued SQS message payload.")
             return False
 
-        logger.info(f"📨 Processing SQS message for Conv: {conversation_id} (Lead: {lead_id})")
+        logger.info(f"Processing SQS message for Conv: {conversation_id} (Lead: {lead_id})")
         
         # Run orchestrator synchronously inside worker thread
         # Orchestrator handles locking and runs the async pipeline
@@ -82,7 +82,7 @@ def run_outbound_worker():
         return
 
     sqs = boto3.client("sqs", region_name=REGION)
-    logger.info(f"🚀 Outbound SQS Worker started. Polling: {SQS_URL}")
+    logger.info(f"Outbound SQS Worker started. Polling: {SQS_URL}")
 
     while True:
         try:
@@ -99,7 +99,7 @@ def run_outbound_worker():
                 receipt = msg["ReceiptHandle"]
                 body_str = msg["Body"]
                 
-                logger.info(f"📨 Message dequeued: {msg_id}")
+                logger.info(f"Message dequeued: {msg_id}")
                 
                 # Execute payload
                 success = process_sqs_message(body_str)
@@ -107,15 +107,15 @@ def run_outbound_worker():
                 if success:
                     # Delete message on completion
                     sqs.delete_message(QueueUrl=SQS_URL, ReceiptHandle=receipt)
-                    logger.info(f"✅ Message {msg_id} processed and deleted from queue.")
+                    logger.info(f"Message {msg_id} processed and deleted from queue.")
                 else:
-                    logger.warning(f"❌ Processing failed for message {msg_id}. Leaving in queue for retry.")
+                    logger.warning(f"Processing failed for message {msg_id}. Leaving in queue for retry.")
 
         except KeyboardInterrupt:
-            logger.info("🛑 Outbound Worker stopped by keyboard interrupt.")
+            logger.info("Outbound Worker stopped by keyboard interrupt.")
             break
         except Exception as e:
-            logger.error(f"⚠️ Polling error: {e}")
+            logger.error("Polling error", exc_info=True)
             time.sleep(5)
 
 

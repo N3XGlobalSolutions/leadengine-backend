@@ -26,9 +26,13 @@ def create_error_response(
     details: Any = None,
     request: Optional[Request] = None,
 ) -> JSONResponse:
-    """Create a consistent error response with CORS headers."""
-    from app.core.config import get_settings
-    
+    """Create a consistent error response.
+
+    CORS headers are intentionally NOT set here — CORSMiddleware (the outermost
+    middleware, with a strict origin whitelist) adds them to every response,
+    including error responses. Setting them here previously reflected any Origin
+    with credentials and bypassed the whitelist.
+    """
     request_id = request_id_var.get()
 
     response_body = {
@@ -42,32 +46,10 @@ def create_error_response(
     if details:
         response_body["error"]["details"] = details
 
-    response = JSONResponse(
+    return JSONResponse(
         status_code=status_code,
         content=response_body,
     )
-    
-    # Add CORS headers to error responses (critical for Lambda/API Gateway)
-    settings = get_settings()
-    origin = None
-    if request:
-        origin = request.headers.get("origin")
-    
-    # Determine allowed origin
-    allowed_origin = "*"
-    if origin and settings.CORS_ORIGINS:
-        origins_list = [o.strip() for o in settings.CORS_ORIGINS]
-        if origin in origins_list:
-            allowed_origin = origin
-    
-    # Set CORS headers
-    response.headers["Access-Control-Allow-Origin"] = allowed_origin
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Tenant-ID, Accept, X-Api-Key"
-    response.headers["Access-Control-Max-Age"] = "3600"
-    
-    return response
 
 
 async def validation_exception_handler(

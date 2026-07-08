@@ -76,16 +76,16 @@ class OutboundConversationOrchestrator:
         Returns:
             bool: True if processed successfully, False if skipped/locked
         """
-        # 1. Acquire distributed lock (retrying up to 3 times)
-        lock_acquired = False
+        # 1. Acquire distributed (fenced) lock, retrying up to 3 times.
+        lock_owner = None
         for attempt in range(1, 4):
-            if outbound_db_service.acquire_lock(conversation_id, ttl_seconds=30):
-                lock_acquired = True
+            lock_owner = outbound_db_service.acquire_lock(conversation_id, ttl_seconds=120)
+            if lock_owner:
                 break
             logger.warning(f"[Orchestrator] Lock acquisition failed for conversation {conversation_id} (Attempt {attempt}/3). Retrying...")
             await asyncio.sleep(1.0)
 
-        if not lock_acquired:
+        if not lock_owner:
             logger.error(f"[Orchestrator] Could not acquire lock for conversation {conversation_id}. Aborting.")
             return False
 
@@ -110,8 +110,8 @@ class OutboundConversationOrchestrator:
             return False
 
         finally:
-            # 4. Release distributed lock
-            outbound_db_service.release_lock(conversation_id)
+            # 4. Release distributed lock (only if we still own it — fencing)
+            outbound_db_service.release_lock(conversation_id, owner=lock_owner)
             logger.debug(f"[Orchestrator] Released lock for conversation {conversation_id}")
 
 

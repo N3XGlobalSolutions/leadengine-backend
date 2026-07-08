@@ -38,7 +38,7 @@ class CampaignExecutorService:
             logger.warning(f"Campaign {campaign_id} is not RUNNING (status: {campaign.status})")
             return
 
-        logger.info(f"🚀 Starting execution of campaign {campaign_id}: {campaign.name}")
+        logger.info(f"Starting execution of campaign {campaign_id}: {campaign.name}")
 
         try:
             batch_size = campaign.batch_size
@@ -57,7 +57,7 @@ class CampaignExecutorService:
 
                 if not pending_leads:
                     # All leads processed — mark as completed
-                    logger.info(f"✅ Campaign {campaign_id} completed — all leads processed")
+                    logger.info(f"Campaign {campaign_id} completed - all leads processed")
                     campaign_service.update_campaign_status(campaign_id, CampaignStatus.COMPLETED)
                     campaign_audit_service.log_action(CampaignAuditCreate(
                         campaign_id=campaign_id,

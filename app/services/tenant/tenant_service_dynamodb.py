@@ -22,6 +22,9 @@ from app.models.TenantSummary import TenantSummary
 from app.models.TenantSummaryPaginationResponse import TenantSummaryPaginationResponse
 from app.models.tenant import Tenant, TenantConfig, TenantCreate, TenantUpdate, TenantStatus
 from app.utils.encryption import encrypt_secret, is_encrypted
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def _strip_none_values(obj):
@@ -54,6 +57,29 @@ class TenantServiceDynamoDB:
     # In-memory cache: {tenant_id: (tenant, expiry_timestamp)}
     _cache = {}
     CACHE_TTL_SECONDS = 300  # 5 minutes
+    MAX_CACHE_ENTRIES = 500  # Upper bound so the in-memory cache cannot grow without limit
+
+    def _evict_cache_if_needed(self) -> None:
+        """Bound the in-memory tenant cache so it cannot grow without limit.
+
+        Called before inserting a new entry. When the cache is at capacity we
+        first drop entries whose TTL has already expired, and if that is not
+        enough we evict a few remaining entries to make room.
+        """
+        if len(self._cache) < self.MAX_CACHE_ENTRIES:
+            return
+
+        # First, drop entries whose TTL has already expired.
+        now = datetime.now(timezone.utc)
+        expired_keys = [
+            key for key, (_, expiry) in list(self._cache.items()) if expiry <= now
+        ]
+        for key in expired_keys:
+            self._cache.pop(key, None)
+
+        # If still at capacity, evict remaining entries to make room.
+        while len(self._cache) >= self.MAX_CACHE_ENTRIES:
+            self._cache.popitem()
 
     def create_tenant(self, tenant_data: TenantCreate) -> Tenant:
         """Creates a new tenant."""
@@ -100,19 +126,24 @@ class TenantServiceDynamoDB:
 
         put_item(tenant_item)
 
-        keys = redis_client.keys("tenant_summaries:*")
+        if redis_client is not None:
+            try:
+                keys = list(redis_client.scan_iter(match="tenant_summaries:*"))
+                if keys:
+                    redis_client.delete(*keys)
+                logger.info("Tenant summaries cache cleared")
+            except Exception:
+                logger.warning(
+                    "Failed to clear tenant summaries cache from Redis", exc_info=True
+                )
 
-        if keys:
-            redis_client.delete(*keys)
-
-        print("TENANT CACHE CLEARED")
         #Update analytics counters
         try:
             from app.services import analytics_service, USE_DYNAMODB
             if USE_DYNAMODB:
                 analytics_service.increment_platform_counter("total_tenants")
         except Exception as e:
-            print(f"Warning: Failed to update platform analytics: {e}")
+            logger.warning(f"Failed to update platform analytics: {e}")
 
         return Tenant(
             tenant_id=tenant_id,
@@ -196,6 +227,7 @@ class TenantServiceDynamoDB:
         tenant = self.get_tenant(tenant_id)
         if tenant:
             expiry = datetime.now(timezone.utc) + timedelta(seconds=self.CACHE_TTL_SECONDS)
+            self._evict_cache_if_needed()
             self._cache[tenant_id] = (tenant, expiry)
 
         return tenant
@@ -204,37 +236,48 @@ class TenantServiceDynamoDB:
 
         """Invalidates Redis cache for tenant."""
 
-        # Clear single tenant cache
-        redis_client.delete(f"tenant:{tenant_id}")
+        if redis_client is None:
+            return
 
-        # Clear tenant list cache
-        tenant_keys = redis_client.keys("list_tenants:*")
+        try:
+            # Clear single tenant cache
+            redis_client.delete(f"tenant:{tenant_id}")
 
-        if tenant_keys:
-            redis_client.delete(*tenant_keys)
+            # Clear tenant list cache
+            tenant_keys = list(redis_client.scan_iter(match="list_tenants:*"))
+            if tenant_keys:
+                redis_client.delete(*tenant_keys)
 
-        # Clear tenant summary cache
-        summary_keys = redis_client.keys("tenant_summaries:*")
+            # Clear tenant summary cache
+            summary_keys = list(redis_client.scan_iter(match="tenant_summaries:*"))
+            if summary_keys:
+                redis_client.delete(*summary_keys)
 
-        if summary_keys:
-            redis_client.delete(*summary_keys)
-
-        print(f"CACHE INVALIDATED FOR TENANT: {tenant_id}")
+            logger.info("Cache invalidated for tenant: %s", tenant_id)
+        except Exception:
+            logger.warning(
+                "Failed to invalidate Redis cache for tenant: %s",
+                tenant_id,
+                exc_info=True,
+            )
 
     def list_tenant_summaries(self, skip: int = 0, limit: int = 100):
 
         cache_key = f"tenant_summaries:{skip}:{limit}"
 
-        cached_data = redis_client.get(cache_key)
-
-        if cached_data:
-            print("CACHE HIT")
-
-            cached_tenants = json.loads(cached_data)
-
-            return [TenantSummary(**tenant) for tenant in cached_tenants]
-
-        print("CACHE MISS")
+        if redis_client is not None:
+            try:
+                cached_data = redis_client.get(cache_key)
+                if cached_data:
+                    logger.info("Cache hit")
+                    cached_tenants = json.loads(cached_data)
+                    return [TenantSummary(**tenant) for tenant in cached_tenants]
+                logger.info("Cache miss")
+            except Exception:
+                logger.warning(
+                    "Failed to read tenant summaries from Redis; falling back to DB",
+                    exc_info=True,
+                )
 
         table = get_dynamodb_table()
 
@@ -281,12 +324,18 @@ class TenantServiceDynamoDB:
 
         paginated_tenants = tenants[skip: skip + limit]
 
-        # ✅ STORE IN REDIS
-        redis_client.setex(
-            cache_key,
-            300,
-            json.dumps([t.model_dump() for t in paginated_tenants])
-        )
+        # Store in Redis (best effort; degrade gracefully on outage)
+        if redis_client is not None:
+            try:
+                redis_client.setex(
+                    cache_key,
+                    300,
+                    json.dumps([t.model_dump() for t in paginated_tenants])
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to store tenant summaries in Redis", exc_info=True
+                )
 
         return paginated_tenants
 
@@ -485,7 +534,7 @@ class TenantServiceDynamoDB:
                 if USE_DYNAMODB:
                     analytics_service.increment_platform_counter("total_tenants", amount=-1)
             except Exception as e:
-                print(f"Warning: Failed to update platform analytics: {e}")
+                logger.warning(f"Failed to update platform analytics: {e}")
 
         return result is not None
 

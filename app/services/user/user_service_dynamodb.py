@@ -18,6 +18,9 @@ from app.core.dynamodb import (
 )
 from app.models.user import User, UserCreate, UserResponse, UserRole, UserUpdate
 from app.utils.security import get_password_hash
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 # Map legacy / renamed roles stored in DB to current valid UserRole values
 _LEGACY_ROLE_MAP = {
@@ -63,9 +66,12 @@ class UserServiceDynamoDB:
 
         Checks for existing email via GSI1 lookup before creating.
         """
-        # Check if user exists (GSI1 lookup by email)
+        # Check if user exists (GSI1 lookup by email).
+        # NOTE: key must match the stored GSI1PK format "EMAIL#<email>" exactly —
+        # a stray space here previously made this guard never fire, allowing
+        # duplicate accounts with the same email.
         existing = query_items(
-            pk=f"EMAIL #{user_data.email}", index_name="GSI1", limit=1
+            pk=f"EMAIL#{user_data.email}", index_name="GSI1", limit=1
         )
         if existing:
             raise ValueError("User with this email already exists")
@@ -106,7 +112,7 @@ class UserServiceDynamoDB:
             if USE_DYNAMODB:
                 analytics_service.increment_platform_counter("total_users")
         except Exception as e:
-            print(f"Warning: Failed to update platform analytics: {e}")
+            logger.warning("Failed to update platform analytics", exc_info=True)
 
         # Return without password
         return UserResponse(
@@ -285,7 +291,7 @@ class UserServiceDynamoDB:
                 if USE_DYNAMODB:
                     analytics_service.increment_platform_counter("total_users", amount=-1)
             except Exception as e:
-                print(f"Warning: Failed to update platform analytics: {e}")
+                logger.warning("Failed to update platform analytics", exc_info=True)
 
         return result is not None
 

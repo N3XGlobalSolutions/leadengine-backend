@@ -52,11 +52,19 @@ class OutboundDBService:
 
     # ── CONVERSATION LOCKS (Distributed Lock) ──────────────────────────
 
-    def acquire_lock(self, conversation_id: str, ttl_seconds: int = 30) -> bool:
-        """Acquire lock on conversation using conditional write."""
+    def acquire_lock(self, conversation_id: str, ttl_seconds: int = 120) -> Optional[str]:
+        """Acquire a fenced lock on a conversation using a conditional write.
+
+        Returns a unique owner token on success (truthy), or None if the lock is
+        held by someone else. The token must be passed back to ``release_lock``
+        so a worker whose lock has already expired (and been re-acquired by
+        another worker) cannot delete the new owner's lock. TTL defaults to 120s
+        to comfortably exceed worst-case pipeline latency (multi-step LLM).
+        """
         table = get_dynamodb_table()
         now = int(time.time())
         expires_at = now + ttl_seconds
+        owner = str(uuid.uuid4())
         pk = f"LOCK#CONV#{conversation_id}"
         sk = "LOCK"
 
@@ -65,27 +73,44 @@ class OutboundDBService:
                 Item={
                     "PK": pk,
                     "SK": sk,
+                    "owner": owner,
                     "expires_at": expires_at,
                     "created_at": datetime.now(timezone.utc).isoformat(),
                 },
                 ConditionExpression="attribute_not_exists(PK) OR expires_at < :now",
                 ExpressionAttributeValues={":now": now},
             )
-            return True
+            return owner
         except ClientError as e:
             if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                return False
+                return None
             raise e
 
-    def release_lock(self, conversation_id: str) -> bool:
-        """Release lock on conversation."""
+    def release_lock(self, conversation_id: str, owner: Optional[str] = None) -> bool:
+        """Release the lock only if we still own it (fencing).
+
+        Passing the ``owner`` token returned by ``acquire_lock`` ensures we do
+        not delete a lock that has since expired and been taken over by another
+        worker. If no token is provided we fall back to an unconditional delete
+        for backwards compatibility.
+        """
         table = get_dynamodb_table()
         pk = f"LOCK#CONV#{conversation_id}"
         sk = "LOCK"
         try:
-            table.delete_item(Key={"PK": pk, "SK": sk})
+            if owner is not None:
+                table.delete_item(
+                    Key={"PK": pk, "SK": sk},
+                    ConditionExpression="owner = :owner",
+                    ExpressionAttributeValues={":owner": owner},
+                )
+            else:
+                table.delete_item(Key={"PK": pk, "SK": sk})
             return True
-        except ClientError:
+        except ClientError as e:
+            # ConditionalCheckFailed means someone else owns it now — that's fine.
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
             return False
 
     # ── WEBHOOK DEDUPLICATION ─────────────────────────────────────────

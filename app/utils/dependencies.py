@@ -82,30 +82,62 @@ def require_role(allowed_roles: list[UserRole]):
     return role_checker
 
 
-# Roles that have platform-level (cross-tenant) access
-PLATFORM_LEVEL_ROLES = [UserRole.PLATFORM_ADMIN, UserRole.PLATFORM_OPERATOR, UserRole.SALES_TEAM]
+# Roles that have cross-tenant READ access
+CROSS_TENANT_READ_ROLES = [
+    UserRole.PLATFORM_ADMIN,
+    UserRole.PLATFORM_OPERATOR,
+    UserRole.SALES_TEAM,  # read-only across tenants
+]
+
+# Roles that have cross-tenant WRITE access (SALES_TEAM intentionally excluded)
+CROSS_TENANT_WRITE_ROLES = [
+    UserRole.PLATFORM_ADMIN,
+    UserRole.PLATFORM_OPERATOR,
+]
+
+# Backwards-compatible alias (some modules import this name)
+PLATFORM_LEVEL_ROLES = CROSS_TENANT_READ_ROLES
 
 
 async def validate_tenant_access(
     tenant_id: str,
     current_user: UserResponse = Depends(get_current_user),
 ) -> bool:
-    """Validate that user has access to the tenant."""
-    # Platform admins and operators can access any tenant
-    if current_user.role in [UserRole.PLATFORM_ADMIN, UserRole.PLATFORM_OPERATOR]:
+    """Validate that a user has READ access to the tenant.
+
+    Cross-tenant read is allowed for platform admins/operators and the sales
+    team. Everyone else is confined to their own tenant.
+    """
+    if current_user.role in CROSS_TENANT_READ_ROLES:
         return True
 
-    # Sales team can read any tenant
-    if current_user.role == UserRole.SALES_TEAM:
-        return True
-
-    # Verify the user has access to the requested tenant ID
     if tenant_id and current_user.tenant_id != tenant_id:
-        if current_user.role not in PLATFORM_LEVEL_ROLES:
-            raise HTTPException(
-                status_code=403,
-                detail="Not enough permissions to access this tenant"
-            )
+        raise HTTPException(
+            status_code=403,
+            detail="Not enough permissions to access this tenant",
+        )
+
+    return True
+
+
+async def validate_tenant_write_access(
+    tenant_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+) -> bool:
+    """Validate that a user has WRITE access to the tenant.
+
+    Stricter than read access: the sales team (read-only) is NOT permitted to
+    mutate other tenants' data. Only platform admins/operators, or a user acting
+    within their own tenant, may write.
+    """
+    if current_user.role in CROSS_TENANT_WRITE_ROLES:
+        return True
+
+    if tenant_id and current_user.tenant_id != tenant_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Not enough permissions to modify this tenant's data",
+        )
 
     return True
 
