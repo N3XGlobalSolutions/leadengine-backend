@@ -357,7 +357,7 @@ class OutboundDBService:
             campaign_id=item["campaign_id"],
             started_at=datetime.fromisoformat(item["started_at"]),
             last_message_at=datetime.fromisoformat(item["last_message_at"]),
-            stage=ConversationStage(item.get("stage", "NEW")),
+            stage=ConversationStage.from_value(item.get("stage", "NEW")),
             status=item.get("status", "ACTIVE"),
             message_count=int(item.get("message_count", 0)),
             response_time_sum=float(item.get("response_time_sum", 0.0)),
@@ -415,7 +415,7 @@ class OutboundDBService:
                     campaign_id=item["campaign_id"],
                     started_at=datetime.fromisoformat(item["started_at"]),
                     last_message_at=datetime.fromisoformat(item["last_message_at"]),
-                    stage=ConversationStage(item.get("stage", "NEW")),
+                    stage=ConversationStage.from_value(item.get("stage", "NEW")),
                     status=item.get("status", "ACTIVE"),
                     message_count=int(item.get("message_count", 0)),
                     response_time_sum=float(item.get("response_time_sum", 0.0)),
@@ -501,7 +501,7 @@ class OutboundDBService:
                 preferences=item.get("preferences", {}),
                 customer_intent=item.get("customer_intent", ""),
                 last_action=item.get("last_action", ""),
-                conversation_stage=ConversationStage(item.get("conversation_stage", "NEW")),
+                conversation_stage=ConversationStage.from_value(item.get("conversation_stage", "NEW")),
             )
         except Exception:
             return OutboundMemory(conversation_id=conversation_id)

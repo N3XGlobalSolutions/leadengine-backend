@@ -48,7 +48,7 @@ class DynamoDBClient:
         """Get main application table"""
         if cls._table is None:
             resource = cls.get_resource()
-            table_name = getattr(settings, "DYNAMODB_TABLE_NAME", "aob_app_data")
+            table_name = getattr(settings, "DYNAMODB_TABLE_NAME", "qbot-prod-backup")
             cls._table = resource.Table(table_name)
         return cls._table
 

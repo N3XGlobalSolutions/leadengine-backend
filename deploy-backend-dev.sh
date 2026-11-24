@@ -17,9 +17,10 @@ set -Eeuo pipefail
 REGION="ap-south-1"
 S3_BUCKET="test-lambda-leadengine"
 S3_KEY="dev/qbot-lambda.zip"
+export AWS_PROFILE="${AWS_PROFILE:-leadengine}"
 
 LAMBDA_API="test-leadengine"
-LAMBDA_WORKER="test-leadengine-sqs-worker"
+LAMBDA_WORKER="test-leadengine-sqs-workier"
 
 # ---------- Paths ----------
 
@@ -89,9 +90,9 @@ log "📝 Commit: $COMMIT"
 log "📦 Building Lambda package..."
 bash create_lambda_package.sh
 
-if [ ! -f "leadengine-lambda.zip" ]; then
-echo "❌ leadengine-lambda.zip not found"
-exit 1
+if [ ! -f "qbot-lambda.zip" ]; then
+    echo "❌ qbot-lambda.zip not found"
+    exit 1
 fi
 
 ZIP_SIZE=$(du -h qbot-lambda.zip | cut -f1)

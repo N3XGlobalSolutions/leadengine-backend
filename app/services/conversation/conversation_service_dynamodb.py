@@ -262,6 +262,7 @@ class ConversationServiceDynamoDB:
         """Returns the total number of conversations for a tenant using an optimized count query."""
         return count_items(
             pk=f"TENANT#{tenant_id}",
+            sk_prefix="CONV#",
             index_name="GSI1",
         )
 
@@ -272,6 +273,7 @@ class ConversationServiceDynamoDB:
 
         items = query_items(
             pk=f"TENANT#{tenant_id}",
+            sk_prefix="CONV#",
             index_name="GSI1",
             limit=limit + skip,
             scan_forward=False,

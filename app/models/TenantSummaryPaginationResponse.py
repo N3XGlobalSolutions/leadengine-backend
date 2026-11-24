@@ -6,4 +6,6 @@ from app.models.TenantSummary import TenantSummary
 
 class TenantSummaryPaginationResponse(BaseModel):
     items: List[TenantSummary]
-    nextCursor: Optional[Dict[str, Any]] = None
+    nextCursor: Optional[Any] = None
+    total: Optional[int] = None
+    planCounts: Optional[Dict[str, int]] = None

@@ -111,7 +111,7 @@ def test_1_signup():
         "email": TEST_EMAIL,
         "password": TEST_PASSWORD,
         "full_name": "Test User",
-        "role": "aob_admin"  # Need admin role to create tenants
+        "role": "platform_admin"  # Need admin role to create tenants
     }
     
     response = requests.post(f"{BASE_URL}/api/auth/register", json=payload)
@@ -175,7 +175,9 @@ def test_3_create_tenant():
             "qualification_questions": [
                 {
                     "id": "Q1",
-                    "question": "What type of property are you looking for?",
+                    "instruction": "What type of property are you looking for?",
+                    "label": "Property Type",
+                    "collects": ["property_type"],
                     "quick_replies": [
                         {"id": "1", "text": "Apartment", "value": "apartment"},
                         {"id": "2", "text": "Villa", "value": "villa"}
@@ -299,17 +301,31 @@ For more information, contact our sales team.
         # Accept both 200 (sync processing) and 202 (async processing)
         if response.status_code in [200, 202]:
             doc_data = response.json()
-            # For sync (200), document_id is directly in response
-            # For async (202), it's in job_id field
-            test_data["document_id"] = doc_data.get("document_id") or doc_data.get("job_id")
-            print_success("Document uploaded")
-            print_info(f"Document ID/Job ID: {test_data['document_id']}")
-            print_info(f"Response: {doc_data}")  # Debug: see full response
             if response.status_code == 202:
                 print_info("Status: Queued for async processing")
                 print_info(f"Message: {doc_data.get('message')}")
+                # Fetch actual document_id from the list
+                time.sleep(1)  # wait a moment for DB write
+                list_response = requests.get(
+                    f"{BASE_URL}/api/documents/tenants/{test_data['tenant_id']}",
+                    headers=headers
+                )
+                if list_response.status_code == 200:
+                    docs = list_response.json()
+                    matching_docs = [d for d in docs if d.get("filename") == "test_properties.md"]
+                    if matching_docs:
+                        test_data["document_id"] = matching_docs[0].get("document_id")
+                    else:
+                        test_data["document_id"] = doc_data.get("job_id")
+                else:
+                    test_data["document_id"] = doc_data.get("job_id")
             else:
+                test_data["document_id"] = doc_data.get("document_id")
                 print_info(f"Status: {doc_data.get('status')}")
+
+            print_success("Document uploaded")
+            print_info(f"Document ID: {test_data['document_id']}")
+            print_info(f"Response: {doc_data}")  # Debug: see full response
             
             # For async processing, poll until document is ready
             if response.status_code == 202 and test_data['document_id']:

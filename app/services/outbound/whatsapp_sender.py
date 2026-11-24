@@ -67,36 +67,55 @@ class WhatsAppSender:
 
         If configuration is missing or WhatsApp is disabled, runs in Simulation Mode.
         """
-        # Validate configuration
-        enabled = getattr(tenant_config, "whatsapp_enabled", False)
-        access_token_encrypted = getattr(tenant_config, "whatsapp_access_token", None)
-        phone_number_id = getattr(tenant_config, "whatsapp_phone_number_id", None)
+        import os
 
-        if not enabled or not access_token_encrypted or not phone_number_id:
-            logger.info("[WhatsApp] Simulation mode active")
-            return {
-                "status": "simulated",
-                "provider": "whatsapp"
+        # Check for 360dialog API credentials in environment or tenant config
+        d360_key = os.environ.get("D360_API_KEY") or getattr(tenant_config, "d360_api_key", None)
+        d360_url = os.environ.get("D360_API_URL") or getattr(tenant_config, "d360_api_url", None)
+
+        if d360_key:
+            # 360dialog API Endpoint
+            base_url = d360_url.rstrip("/") if d360_url else "https://waba-sandbox.360dialog.io/v1"
+            url = base_url if base_url.endswith("/messages") else f"{base_url}/messages"
+
+            headers = {
+                "D360-API-KEY": d360_key,
+                "Authorization": f"Bearer {d360_key}",
+                "Content-Type": "application/json"
+            }
+            logger.info(f"[WhatsApp] Using 360dialog API endpoint: {url}")
+        else:
+            # Standard Meta Direct Cloud API mode
+            enabled = getattr(tenant_config, "whatsapp_enabled", False)
+            access_token_encrypted = getattr(tenant_config, "whatsapp_access_token", None)
+            phone_number_id = getattr(tenant_config, "whatsapp_phone_number_id", None)
+
+            if not enabled or not access_token_encrypted or not phone_number_id:
+                logger.info("[WhatsApp] Simulation mode active")
+                return {
+                    "status": "simulated",
+                    "provider": "whatsapp"
+                }
+
+            try:
+                access_token = decrypt_secret(access_token_encrypted)
+            except Exception as e:
+                logger.error(f"Failed to decrypt WhatsApp access token: {e}")
+                return {
+                    "status": "failed",
+                    "provider": "whatsapp",
+                    "error": f"Decryption failed: {str(e)}"
+                }
+
+            url = f"https://graph.facebook.com/v23.0/{phone_number_id}/messages"
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
             }
 
-        # Decrypt token
-        try:
-            access_token = decrypt_secret(access_token_encrypted)
-        except Exception as e:
-            logger.error(f"Failed to decrypt WhatsApp access token: {e}")
-            return {
-                "status": "failed",
-                "provider": "whatsapp",
-                "error": f"Decryption failed: {str(e)}"
-            }
-
-        url = f"https://graph.facebook.com/v23.0/{phone_number_id}/messages"
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json"
-        }
         payload = {
             "messaging_product": "whatsapp",
+            "recipient_type": "individual",
             "to": to_phone,
             "type": "text",
             "text": {

@@ -67,7 +67,7 @@ class OutboundAISession(BaseModel):
     prompt_id: str = "outbound_sales_v1"
     
     start_time: float = Field(default_factory=time.time)
-    metrics: Dict[str, float] = Field(default_factory=dict)
+    metrics: Dict[str, Any] = Field(default_factory=dict)
     token_usage: Dict[str, int] = Field(default_factory=lambda: {"prompt": 0, "completion": 0, "total": 0})
     estimated_cost: float = 0.0
 

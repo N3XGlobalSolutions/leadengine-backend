@@ -23,6 +23,36 @@ class ConversationStage(str, Enum):
     WON = "WON"
     LOST = "LOST"
 
+    @classmethod
+    def from_value(cls, value: Any) -> "ConversationStage":
+        """Safely parse or map raw string/enum value to a valid ConversationStage."""
+        if isinstance(value, cls):
+            return value
+        if not value or not isinstance(value, str):
+            return cls.NEW
+
+        # Try direct Enum match
+        try:
+            return cls(value)
+        except ValueError:
+            pass
+
+        # Handle legacy / SalesGoal values stored by past bug
+        sales_goal_mapping = {
+            "COLD_OUTREACH": cls.CONTACTED,
+            "IDENTIFY_DECISION_MAKER": cls.ENGAGED,
+            "COLLECT_REQUIREMENTS": cls.QUALIFIED,
+            "PRODUCT_RECOMMENDATION": cls.PRODUCT_DISCUSSION,
+            "COLLECT_BUDGET": cls.PRICING,
+            "BOOK_MEETING": cls.MEETING_REQUESTED,
+            "CLOSE_SALE": cls.NEGOTIATION,
+            "UPSELL": cls.WON,
+            "CROSS_SELL": cls.WON,
+            "REACTIVATE": cls.CONTACTED,
+        }
+        return sales_goal_mapping.get(value, cls.NEW)
+
+
 
 class ConversationStageManager:
     """Validates legal transitions between conversation stages."""
@@ -131,7 +161,7 @@ class OutboundAgentSettings(BaseModel):
     conversation_style: str = "Informative and natural"
     target_audience: str = "General business clients"
     primary_language: str = "en"
-    max_response_length: int = 500  # Characters
+    max_response_length: int = 1500  # Characters
     enable_scheduling: bool = True
     enable_product_search: bool = True
     enable_knowledge_search: bool = True

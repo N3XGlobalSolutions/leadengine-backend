@@ -126,7 +126,8 @@ async def process_webhook(
         logger.info(f"[Webhook] No active lead match found for {normalized_phone}. Ignoring message.")
         return {"status": "ignored", "reason": "No campaign lead associated"}
 
-    # Match the most recent lead
+    # Match the most recent lead by creation timestamp
+    items.sort(key=lambda x: x.get("created_at", ""))
     lead_item = items[-1]
     tenant_id = lead_item["tenant_id"]
     campaign_id = lead_item["campaign_id"]

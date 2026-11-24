@@ -291,16 +291,89 @@ class TenantServiceDynamoDB:
         return paginated_tenants
 
 
-    from typing import Optional, Dict, Any
+    from typing import Optional, Dict, Any, Union
+
+    def get_tenant_stats_summary(self) -> Dict[str, Any]:
+        """Return total tenant count and plan counts breakdown with 60s Redis caching."""
+        cache_key = "tenant_stats_summary"
+        try:
+            cached = redis_client.get(cache_key)
+            if cached:
+                return json.loads(cached)
+        except Exception:
+            pass
+
+        table = get_dynamodb_table()
+        plan_counts = {
+            "all": 0,
+            "S1": 0,
+            "S2": 0,
+            "S3": 0,
+            "S3_MAX": 0,
+            "S3_MAPPING": 0,
+        }
+        total = 0
+
+        last_evaluated_key = None
+        while True:
+            scan_kwargs = {
+                "FilterExpression": "begins_with(PK, :pk) AND SK = :sk",
+                "ExpressionAttributeValues": {
+                    ":pk": "TENANT#",
+                    ":sk": "PROFILE",
+                },
+                "ProjectionExpression": "is_deleted, config.#plan",
+                "ExpressionAttributeNames": {
+                    "#plan": "plan"
+                }
+            }
+            if last_evaluated_key:
+                scan_kwargs["ExclusiveStartKey"] = last_evaluated_key
+
+            response = table.scan(**scan_kwargs)
+            for item in response.get("Items", []):
+                if item.get("is_deleted", False):
+                    continue
+                total += 1
+                plan = (item.get("config", {}) or {}).get("plan", "S1")
+                if plan in plan_counts:
+                    plan_counts[plan] += 1
+                else:
+                    plan_counts["S1"] += 1
+
+            last_evaluated_key = response.get("LastEvaluatedKey")
+            if not last_evaluated_key:
+                break
+
+        plan_counts["all"] = total
+        result = {"total": total, "planCounts": plan_counts}
+        try:
+            redis_client.setex(cache_key, 60, json.dumps(result))
+        except Exception:
+            pass
+        return result
 
     def tenant_summaries(
             self,
-            limit: int = 20,
-            cursor: Optional[Dict[str, Any]] = None
+            limit: int = 24,
+            cursor: Optional[Union[Dict[str, Any], str]] = None,
+            search: Optional[str] = None,
+            status: Optional[str] = None,
+            plan: Optional[str] = None,
+            sort: Optional[str] = None,
     ) -> TenantSummaryPaginationResponse:
 
-
         table = get_dynamodb_table()
+
+        parsed_cursor = None
+        if cursor:
+            if isinstance(cursor, str):
+                try:
+                    parsed_cursor = json.loads(cursor)
+                except Exception:
+                    parsed_cursor = None
+            elif isinstance(cursor, dict):
+                parsed_cursor = cursor
 
         scan_kwargs = {
             "FilterExpression": "begins_with(PK, :pk) AND SK = :sk",
@@ -308,43 +381,89 @@ class TenantServiceDynamoDB:
                 ":pk": "TENANT#",
                 ":sk": "PROFILE",
             },
-            "Limit": limit
+            "Limit": max(limit, 50)
         }
 
-        # Cursor support
-        if cursor:
-            scan_kwargs["ExclusiveStartKey"] = cursor
-
-        response = table.scan(**scan_kwargs)
-
-        items = response.get("Items", [])
+        if parsed_cursor:
+            scan_kwargs["ExclusiveStartKey"] = parsed_cursor
 
         tenants = []
+        next_cursor_val = None
 
-        for item in items:
+        while len(tenants) < limit:
+            response = table.scan(**scan_kwargs)
+            items = response.get("Items", [])
+            last_key = response.get("LastEvaluatedKey")
 
-            if item.get("is_deleted", False):
-                continue
+            for item in items:
+                if item.get("is_deleted", False):
+                    continue
 
-            config = item.get("config", {})
+                item_status = item.get("status") or ("Active" if item.get("is_active", True) else "Inactive")
+                if status and status != "all" and item_status.lower() != status.lower():
+                    continue
 
-            tenants.append(
-                TenantSummary(
-                    id=item.get("tenant_id"),
-                    name=item.get("name"),
-                    onboardedDate=item.get("created_at"),
-                    plan=config.get("plan"),
-                    slug=config.get("url_slug"),
-                    status=item.get("status"),
-                    totalUsers=item.get("totalUsers", 0),
+                config = item.get("config", {}) or {}
+                item_plan = config.get("plan", "S1")
+                if plan and plan != "all" and item_plan != plan:
+                    continue
+
+                item_name = item.get("name", "")
+                item_slug = config.get("url_slug", "")
+                item_id = item.get("tenant_id", "")
+
+                if search:
+                    search_lower = search.strip().lower()
+                    if search_lower:
+                        matches = (
+                            search_lower in item_name.lower() or
+                            search_lower in item_slug.lower() or
+                            search_lower in item_id.lower()
+                        )
+                        if not matches:
+                            continue
+
+                tenants.append(
+                    TenantSummary(
+                        id=item_id,
+                        name=item_name,
+                        onboardedDate=item.get("created_at"),
+                        plan=item_plan,
+                        slug=item_slug,
+                        status=item_status,
+                        totalUsers=item.get("totalUsers", 0),
+                    )
                 )
-            )
 
-        next_cursor = response.get("LastEvaluatedKey")
+                if len(tenants) == limit:
+                    break
+
+            if not last_key:
+                next_cursor_val = None
+                break
+            else:
+                next_cursor_val = json.dumps(last_key)
+                scan_kwargs["ExclusiveStartKey"] = last_key
+
+            if len(tenants) >= limit:
+                break
+
+        if sort == 'a-z':
+            tenants.sort(key=lambda x: (x.name or '').lower())
+        elif sort == 'z-a':
+            tenants.sort(key=lambda x: (x.name or '').lower(), reverse=True)
+        elif sort == 'oldest':
+            tenants.sort(key=lambda x: x.onboardedDate or '')
+        elif sort == 'newest':
+            tenants.sort(key=lambda x: x.onboardedDate or '', reverse=True)
+
+        stats = self.get_tenant_stats_summary()
 
         return TenantSummaryPaginationResponse(
             items=tenants,
-            nextCursor=next_cursor
+            nextCursor=next_cursor_val,
+            total=stats["total"],
+            planCounts=stats["planCounts"],
         )
 
     def get_raw_tenant(self, tenant_id: str) -> Optional[dict]:

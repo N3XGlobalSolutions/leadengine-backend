@@ -34,7 +34,10 @@ class ResponseValidator:
         cleaned = text.strip()
 
         # 2. Character Length Enforcer
-        max_len = session.agent_settings.max_response_length if session.agent_settings else 500
+        max_len = 1500
+        if session.agent_settings and getattr(session.agent_settings, "max_response_length", None):
+            max_len = max(session.agent_settings.max_response_length, 1500)
+
         if len(cleaned) > max_len:
             logger.warning(f"[ResponseValidator] Response length ({len(cleaned)}) exceeds limit ({max_len}). Truncating.")
             # Graceful truncation at last sentence/space
@@ -91,8 +94,9 @@ class ResponseValidator:
                 # Return generic sales fallback message instead of sending profanity to prospects
                 return "Our goal is to assist you with the best solutions. How can we help you move forward?"
 
-        # Replace double spaces and clean whitespace artifacts from regex replacements
-        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        # Clean up excess horizontal spaces while preserving newlines & paragraph breaks for WhatsApp
+        cleaned = re.sub(r"[ \t]+", " ", cleaned)
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
 
         return cleaned
 

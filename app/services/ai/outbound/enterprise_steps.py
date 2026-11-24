@@ -7,6 +7,7 @@ import uuid
 from typing import Optional
 
 from app.services.ai.outbound.conversation_pipeline import PipelineStep, OutboundAISession
+from app.models.outbound.outbound_entities import ConversationStage
 from app.models.outbound.outbound_enterprise_entities import SalesMemory, AIReasoningMetadata
 from app.services.ai.outbound.enterprise_engine import (
     intent_classifier,
@@ -70,7 +71,8 @@ class AnalyzeIntentAndStrategyStep(PipelineStep):
         )
 
         # 4. Save updates to session context for PromptBuilder
-        session.stage = sales_mem.active_goal  # Map goal status to runtime stage state if desired
+        if sales_mem.active_goal:
+            session.stage = ConversationStage.from_value(sales_mem.active_goal)
         
         # Save reasoning metadata logs
         reasoning_id = str(uuid.uuid4())

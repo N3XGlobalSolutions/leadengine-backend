@@ -1,6 +1,8 @@
 """AI Sales Executive Reasoning Agent using Bedrock and GLM-5."""
 
 import json
+import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 from app.services.ai.outbound.conversation_pipeline import OutboundAISession
 from app.services.ai.outbound.tool_registry import outbound_tool_registry
@@ -16,65 +18,162 @@ logger = get_logger(__name__)
 class OutboundSalesAgent:
     """Outbound Sales Agent managing LLM reasoning loop and tool dispatching."""
 
-    def _map_history_to_bedrock(self, history: List[OutboundAIMessage]) -> List[Dict[str, Any]]:
-        """Map OutboundAIMessage list into Bedrock converse message structures."""
-        bedrock_messages = []
-        
+    def _map_history_to_bedrock(
+        self,
+        history: List[OutboundAIMessage],
+        user_prompt: str
+    ) -> List[Dict[str, Any]]:
+        """Map OutboundAIMessage list into clean, strictly valid Bedrock converse message structures.
+
+        Enforces Bedrock Converse API constraints:
+        1. Alternating roles: user -> assistant -> user -> assistant ...
+        2. Every toolUse in assistant message MUST be immediately followed by a user message containing matching toolResult blocks.
+        3. Adjacent messages of the same role are merged into a single message.
+        4. The current user prompt is merged into the final user message.
+        """
+        raw_messages: List[Dict[str, Any]] = []
+
+        pending_tool_use_ids: List[str] = []
+        pending_tool_results: List[Dict[str, Any]] = []
+
         for msg in history:
             role = msg.role
-            
-            # Map role
+
             if role == "system":
-                # System instructions are passed separately in Bedrock Converse
                 continue
-                
-            if role == "tool":
-                # Bedrock converse requires toolResult blocks to have the 'user' role
-                tool_use_id = msg.metadata.get("tool_use_id")
-                try:
-                    result_json = json.loads(msg.content)
-                except Exception:
-                    result_json = {"result": msg.content}
-                    
-                bedrock_messages.append({
-                    "role": "user",
-                    "content": [
-                        {
+
+            if role == "assistant":
+                if pending_tool_use_ids:
+                    missing_ids = set(pending_tool_use_ids) - {r["toolResult"]["toolUseId"] for r in pending_tool_results}
+                    for m_id in missing_ids:
+                        pending_tool_results.append({
                             "toolResult": {
-                                "toolUseId": tool_use_id,
-                                "content": [{"json": result_json}],
-                                "status": "success" if msg.metadata.get("success", True) else "error"
+                                "toolUseId": m_id,
+                                "content": [{"json": {"status": "error", "message": "Incomplete execution"}}],
+                                "status": "error"
                             }
-                        }
-                    ]
-                })
-            elif role == "assistant":
+                        })
+                    raw_messages.append({"role": "user", "content": pending_tool_results})
+                    pending_tool_use_ids = []
+                    pending_tool_results = []
+
                 content = []
                 if msg.content:
                     content.append({"text": msg.content})
-                
-                # Check for tool calls
+
+                tool_ids_in_msg = []
                 if msg.tool_calls:
                     for tc in msg.tool_calls:
-                        content.append({
-                            "toolUse": {
-                                "toolUseId": tc["tool_use_id"],
-                                "name": tc["name"],
-                                "input": tc["input"]
+                        t_id = tc.get("tool_use_id") or tc.get("toolUseId")
+                        if t_id:
+                            content.append({
+                                "toolUse": {
+                                    "toolUseId": t_id,
+                                    "name": tc["name"],
+                                    "input": tc.get("input", {})
+                                }
+                            })
+                            tool_ids_in_msg.append(t_id)
+
+                if not content:
+                    content.append({"text": "..."})
+
+                raw_messages.append({"role": "assistant", "content": content})
+                pending_tool_use_ids = tool_ids_in_msg
+
+            elif role == "tool":
+                tool_use_id = (msg.metadata and msg.metadata.get("tool_use_id")) if msg.metadata else None
+                if not tool_use_id:
+                    try:
+                        parsed = json.loads(msg.content)
+                        tool_use_id = parsed.get("tool_use_id")
+                    except Exception:
+                        pass
+
+                if tool_use_id:
+                    try:
+                        result_json = json.loads(msg.content)
+                    except Exception:
+                        result_json = {"result": msg.content}
+
+                    tool_res = {
+                        "toolResult": {
+                            "toolUseId": tool_use_id,
+                            "content": [{"json": result_json}],
+                            "status": "success" if (msg.metadata and msg.metadata.get("success", True) is not False) else "error"
+                        }
+                    }
+
+                    pending_tool_results.append(tool_res)
+                    if pending_tool_use_ids:
+                        collected_ids = {r["toolResult"]["toolUseId"] for r in pending_tool_results}
+                        if set(pending_tool_use_ids).issubset(collected_ids):
+                            raw_messages.append({"role": "user", "content": pending_tool_results})
+                            pending_tool_use_ids = []
+                            pending_tool_results = []
+
+            elif role == "user":
+                if pending_tool_use_ids:
+                    missing_ids = set(pending_tool_use_ids) - {r["toolResult"]["toolUseId"] for r in pending_tool_results}
+                    for m_id in missing_ids:
+                        pending_tool_results.append({
+                            "toolResult": {
+                                "toolUseId": m_id,
+                                "content": [{"json": {"status": "error", "message": "Incomplete execution"}}],
+                                "status": "error"
                             }
                         })
-                
-                bedrock_messages.append({
-                    "role": "assistant",
-                    "content": content
+                    raw_messages.append({"role": "user", "content": pending_tool_results})
+                    pending_tool_use_ids = []
+                    pending_tool_results = []
+
+                text_content = msg.content if msg.content else ""
+                raw_messages.append({"role": "user", "content": [{"text": text_content}]})
+
+        if pending_tool_use_ids:
+            missing_ids = set(pending_tool_use_ids) - {r["toolResult"]["toolUseId"] for r in pending_tool_results}
+            for m_id in missing_ids:
+                pending_tool_results.append({
+                    "toolResult": {
+                        "toolUseId": m_id,
+                        "content": [{"json": {"status": "error", "message": "Incomplete execution"}}],
+                        "status": "error"
+                    }
                 })
-            else:  # user role
-                bedrock_messages.append({
-                    "role": "user",
-                    "content": [{"text": msg.content}]
-                })
-                
-        return bedrock_messages
+            raw_messages.append({"role": "user", "content": pending_tool_results})
+
+        # Merge adjacent messages with identical roles
+        cleaned_messages: List[Dict[str, Any]] = []
+        for m in raw_messages:
+            if not cleaned_messages:
+                cleaned_messages.append(m)
+            else:
+                last_msg = cleaned_messages[-1]
+                if last_msg["role"] == m["role"]:
+                    last_msg["content"].extend(m["content"])
+                else:
+                    cleaned_messages.append(m)
+
+        # Merge user_prompt into the final user message
+        if not cleaned_messages:
+            cleaned_messages.append({"role": "user", "content": [{"text": user_prompt}]})
+        elif cleaned_messages[-1]["role"] == "user":
+            last_content = cleaned_messages[-1]["content"]
+            has_prompt = any("text" in block and block["text"] == user_prompt for block in last_content)
+            if not has_prompt:
+                text_blocks = [b for b in last_content if "text" in b]
+                if text_blocks:
+                    text_blocks[-1]["text"] = user_prompt
+                else:
+                    last_content.append({"text": user_prompt})
+        else:
+            cleaned_messages.append({"role": "user", "content": [{"text": user_prompt}]})
+
+        # Ensure starting message has role "user"
+        if cleaned_messages and cleaned_messages[0]["role"] != "user":
+            cleaned_messages.insert(0, {"role": "user", "content": [{"text": "Hello"}]})
+
+        return cleaned_messages
 
     async def execute_reasoning_loop(self, session: OutboundAISession) -> str:
         """Execute GLM-5 converse reasoning loop, handling multiple tool calling hops.
@@ -85,14 +184,9 @@ class OutboundSalesAgent:
         # 1. Build modular system and user prompt segments
         system_prompt, user_prompt = outbound_prompt_builder.build_prompts(session)
         
-        # 2. Map existing chat history to Bedrock format
-        bedrock_messages = self._map_history_to_bedrock(session.history)
-        
-        # 3. Append current user message
-        bedrock_messages.append({
-            "role": "user",
-            "content": [{"text": user_prompt}]
-        })
+        # 2. Map existing chat history and current user prompt to Bedrock format
+        bedrock_messages = self._map_history_to_bedrock(session.history, user_prompt)
+
         
         # Get tool specifications registered in tool registry
         tool_specs = outbound_tool_registry.get_bedrock_tool_specs()

@@ -1,6 +1,6 @@
 """Chat and conversation routes - State Machine Architecture."""
 
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from fastapi import Request
@@ -937,6 +937,27 @@ async def get_tenant_conversations_count(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
+
+
+@router.post("/tenants/conversations/counts/bulk")
+async def get_bulk_tenant_conversation_counts(
+    payload: Dict[str, List[str]],
+    current_user: UserResponse = Depends(get_current_user),
+):
+    """Get total conversation counts for multiple tenants in a single fast call."""
+    tenant_ids = payload.get("tenant_ids", [])
+    counts = {}
+    from app.services import analytics_service
+    for tenant_id in tenant_ids:
+        try:
+            stats = analytics_service.get_tenant_stats(tenant_id)
+            counts[tenant_id] = stats.get("conversations", 0)
+        except Exception:
+            try:
+                counts[tenant_id] = conversation_service.get_tenant_conversation_count(tenant_id)
+            except Exception:
+                counts[tenant_id] = 0
+    return {"counts": counts}
 
 @router.post("/widget/validate")
 async def validate_widget(

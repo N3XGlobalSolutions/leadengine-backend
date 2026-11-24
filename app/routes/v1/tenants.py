@@ -5,6 +5,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.models.TenantSummary import TenantSummary
+from app.models.TenantSummaryPaginationResponse import TenantSummaryPaginationResponse
 from app.models.tenant import Tenant, TenantCreate, TenantUpdate
 from app.models.user import UserResponse, UserRole
 from app.services import tenant_service, audit_service
@@ -54,29 +55,48 @@ async def create_tenant(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-@router.get("/tenants-summary")
-def getPaginated_tenants_summary(
-    limit: int = Query(20),
-    cursor: Optional[str] = None
+@router.get(
+    "/tenants-summary",
+    response_model=TenantSummaryPaginationResponse,
+)
+async def get_paginated_tenants_summary(
+    limit: int = Query(24, le=100),
+    cursor: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    plan: Optional[str] = Query(None),
+    sort: Optional[str] = Query(None),
 ):
-
-    parsed_cursor = json.loads(cursor) if cursor else None
-
     return tenant_service.tenant_summaries(
         limit=limit,
-        cursor=parsed_cursor
+        cursor=cursor,
+        search=search,
+        status=status,
+        plan=plan,
+        sort=sort,
     )
 
-@router.get("/tenants/summary",
-            response_model=List[TenantSummary],
-            dependencies = [Depends(require_role([UserRole.PLATFORM_ADMIN, UserRole.PLATFORM_OPERATOR,
-                                                  UserRole.SALES_TEAM]))],
+@router.get(
+    "/tenants/summary",
+    response_model=TenantSummaryPaginationResponse,
+    dependencies=[Depends(require_role([UserRole.PLATFORM_ADMIN, UserRole.PLATFORM_OPERATOR, UserRole.SALES_TEAM]))],
 )
 async def get_tenant_summaries(
-    skip: int = 0,
-    limit: int = Query(500, le=500),
+    limit: int = Query(24, le=100),
+    cursor: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    plan: Optional[str] = Query(None),
+    sort: Optional[str] = Query(None),
 ):
-    return tenant_service.list_tenant_summaries(skip=skip, limit=limit)
+    return tenant_service.tenant_summaries(
+        limit=limit,
+        cursor=cursor,
+        search=search,
+        status=status,
+        plan=plan,
+        sort=sort,
+    )
 
 @router.get("/{tenant_id}", response_model=Tenant)
 async def get_tenant(
@@ -102,7 +122,7 @@ async def get_tenant(
 )
 async def list_tenants(
     skip: int = 0,
-    limit: int = Query(500, le=500),
+    limit: int = Query(5000, le=5000),
 ):
     """List all tenants (admin only)."""
     return tenant_service.list_tenants(skip=skip, limit=limit)

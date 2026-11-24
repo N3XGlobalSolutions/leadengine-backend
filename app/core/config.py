@@ -117,13 +117,13 @@ class Settings(BaseSettings):
         explicit = os.getenv("DYNAMODB_TABLE_NAME")
         if explicit and self.APP_ENV == "production":
             return explicit
-        return f"test_leadengine"
+        return f"qbot-prod-backup"
 
     @computed_field
     @property
     def EFFECTIVE_QDRANT_COLLECTION(self) -> str:
-        """Auto-suffixed Qdrant collection name based on APP_ENV."""
-        return f"test_leadengine_documents"
+        """Returns Qdrant collection name from configuration."""
+        return self.QDRANT_COLLECTION_NAME
 
     @computed_field
     @property
