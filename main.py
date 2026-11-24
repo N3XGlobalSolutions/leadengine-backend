@@ -9,7 +9,7 @@ from app.core.config import get_settings
 from app.core.logging_config import get_logger, setup_logging
 from app.middleware.exception_handlers import setup_exception_handlers
 from app.middleware.request_context import RequestContextMiddleware
-from app.routes.v1 import auth, tenants, users, chat, documents, leads, analytics, audit, outbound, drafts, outbound_webhook, outbound_ai
+from app.routes.v1 import auth, tenants, users, chat, documents, leads, analytics, audit, outbound, drafts, outbound_webhook, outbound_ai, booking
 
 # Initialize logging first
 setup_logging()
@@ -109,6 +109,8 @@ app.include_router(outbound.router)
 app.include_router(outbound_webhook.router)
 app.include_router(outbound_ai.router)
 app.include_router(drafts.router)
+app.include_router(booking.router)
+app.include_router(booking.tenant_router)
 
 
 

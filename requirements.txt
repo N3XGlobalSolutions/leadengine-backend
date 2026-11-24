@@ -369,6 +369,8 @@ typing-inspection==0.4.2
     #   fastapi
     #   pydantic
     #   pydantic-settings
+tzdata==2026.6
+    # via leadengine-backend (timezone data for zoneinfo on Windows)
 uritemplate==4.2.0
     # via google-api-python-client
 urllib3==2.7.0
