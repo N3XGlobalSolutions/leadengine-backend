@@ -71,6 +71,15 @@ class ChatRequest(BaseModel):
     api_key: Optional[str] = None  # For widget authentication
 
 
+class ChatProductCard(BaseModel):
+    """Product card attached to a chat reply when the visitor asks about products."""
+
+    product_id: str
+    title: str
+    description: str = ""
+    image_id: Optional[str] = None  # Served via GET /api/tenants/{tenant_id}/chat-products/images/{image_id}
+
+
 class ChatResponse(BaseModel):
     """Chat response model with explicit state info."""
 
@@ -97,3 +106,6 @@ class ChatResponse(BaseModel):
     # S3 Max fields
     s3_max_lead_output: Optional[Dict[str, Any]] = None  # Rich agentic output
     estimated_progress: Optional[float] = None  # 0.0 - 1.0 for dynamic progress bar
+
+    # Chat Products — tenant's product cards, sent when the visitor asks about products
+    products: List[ChatProductCard] = []

@@ -78,7 +78,8 @@ MESSAGES = {
            "mapping_ended": "Thank you! Our team has your details and will be in touch soon. 😊",
            "mapping_transition": {"no_phone": "No problem, let's move on to a few quick questions",
                                   "thanks": "Thank you{name_part}! 😊 Let me ask you a few quick questions",
-                                  "suffix": "to understand your needs better."}},
+                                  "suffix": "to understand your needs better."},
+           "chat_products_intro": "Here's what we offer — tap one to know more."},
     "hi": {
         "welcome": "नमस्ते! मैं आपकी सहायता के लिए यहाँ हूँ।",
 
@@ -168,7 +169,9 @@ MESSAGES = {
             "no_phone": "कोई बात नहीं, चलिए कुछ त्वरित प्रश्नों पर आगे बढ़ते हैं",
             "thanks": "धन्यवाद{name_part}! 😊 मैं आपकी आवश्यकताओं को बेहतर समझने के लिए कुछ त्वरित प्रश्न पूछता हूँ",
             "suffix": "आपकी आवश्यकताओं को बेहतर समझने के लिए।"
-        }
+        },
+
+        "chat_products_intro": "यह रहा जो हम पेश करते हैं — अधिक जानने के लिए किसी एक पर टैप करें।"
     },
     "ta": {
         "welcome": "வணக்கம்! நான் உங்களுக்கு உதவ இங்கே இருக்கிறேன்.",
@@ -219,7 +222,8 @@ MESSAGES = {
             "no_phone": "பரவாயில்லை, சில விரைவான கேள்விகளுக்குச் செல்வோம்",
             "thanks": "நன்றி{name_part}! 😊 உங்கள் தேவைகளை சிறப்பாகப் புரிந்துகொள்ள சில விரைவான கேள்விகளைக் கேட்க அனுமதிக்கவும்",
             "suffix": "உங்கள் தேவைகளை சிறப்பாகப் புரிந்துகொள்ள."
-        }
+        },
+        "chat_products_intro": "நாங்கள் வழங்குபவை இதோ — மேலும் அறிய ஒன்றைத் தட்டவும்."
     }
 }
 

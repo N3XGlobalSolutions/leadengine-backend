@@ -545,6 +545,11 @@ class TenantServiceDynamoDB:
                 if "api_key" in current_config and "api_key" not in new_config_dict:
                     new_config_dict["api_key"] = current_config["api_key"]
 
+                # Preserve chat_products when the update doesn't include them
+                # (an explicit list, including [], replaces them)
+                if "chat_products" in current_config and "chat_products" not in new_config_dict:
+                    new_config_dict["chat_products"] = current_config["chat_products"]
+
                     # Revalidate config after modifications
                 validated_config = TenantConfig(**new_config_dict)
 

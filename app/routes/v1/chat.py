@@ -26,12 +26,112 @@ from app.services.chat.s3_international_state_machine import (
 )
 from app.services.chat.s3_max_state_machine import s3_max_state_machine
 from app.services.chat.s3_mapping_state_machine import s3_mapping_state_machine
+from app.services.chat.product_intent import (
+    attach_chat_products,
+    build_product_cards,
+    get_products_intro,
+    has_product_intent,
+)
 from app.utils.dependencies import get_current_user, validate_tenant_access
 from app.utils.localization import get_message, get_language_name
 from app.core.logging_config import get_logger
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 logger = get_logger(__name__)
+
+# Internal/system turns never get product cards: the paused notice and the
+# button-driven terminal actions ("Yes, schedule a call" / "Maybe later" / chat ended).
+_NO_PRODUCT_CARD_ACTIONS = {"paused", "schedule_call", "disqualify_lead", "ended"}
+
+
+def _attach_chat_products(
+    response: ChatResponse, config, query: str, action: Optional[str] = None
+) -> ChatResponse:
+    """Attach the tenant's chat product cards when the visitor asks about products.
+
+    Applied to every ChatResponse the chat endpoint returns. Failure-safe: on any
+    error the response is returned unchanged.
+    """
+    try:
+        if action in _NO_PRODUCT_CARD_ACTIONS:
+            return response
+        # Chat products are an S3-plan feature only
+        plan = getattr(getattr(config, "plan", None), "value", getattr(config, "plan", None))
+        if plan != "S3":
+            return response
+        return attach_chat_products(
+            response,
+            getattr(config, "chat_products", None),
+            query,
+            getattr(config, "language", None),
+        )
+    except Exception as e:
+        logger.warning(f"Chat products skipped: {e}")
+        return response
+
+
+# States where the bot is waiting for an answer; a product request there is not an answer.
+_PRODUCT_INTERRUPT_STATES = {"contact", "qualifying"}
+
+
+def _product_request_reply(conversation, config, query: str, total_steps: int) -> Optional[ChatResponse]:
+    """S3 only: the visitor asked for products while the bot was waiting for an answer.
+
+    Reply with the product cards and repeat the pending question, WITHOUT running the state
+    machine — otherwise the request ("show me products") would be recorded as the answer
+    (e.g. as the budget). Returns None to fall through to the normal flow. Failure-safe.
+    """
+    try:
+        plan = getattr(getattr(config, "plan", None), "value", getattr(config, "plan", None))
+        products = getattr(config, "chat_products", None) or []
+        if plan != "S3" or not products:
+            return None
+        if conversation.current_state not in _PRODUCT_INTERRUPT_STATES:
+            return None
+        if not has_product_intent(query, products):
+            return None
+        cards = build_product_cards(products)
+        if not cards:
+            return None
+
+        intro = get_products_intro(getattr(config, "language", None))
+        # The pending question = the latest assistant message (the user's message is already saved)
+        history = conversation_service.get_context_history(
+            conversation.conversation_id, max_messages=6, truncate_length=2000
+        )
+        pending = next(
+            (m.get("content") or "" for m in reversed(history) if m.get("role") == "assistant"), ""
+        ).strip()
+        if pending.startswith(intro):  # asked twice in a row: don't stack the intro
+            pending = pending[len(intro):].strip()
+        answer = f"{intro}\n\n{pending}" if pending else intro
+
+        quick_replies: List[str] = []
+        questions = config.qualification_questions or []
+        step = conversation.current_step_index
+        if conversation.current_state == "qualifying" and 0 <= step < len(questions):
+            quick_replies = [qr.text for qr in (questions[step].quick_replies or [])]
+
+        assistant_message = conversation_service.add_message(
+            conversation.conversation_id, role="assistant", content=answer
+        )
+        logger.info(
+            f"Chat products shown mid-flow for conversation {conversation.conversation_id} "
+            f"(state={conversation.current_state}, step={step})"
+        )
+        return ChatResponse(
+            answer=answer,
+            conversation_id=conversation.conversation_id,
+            message_id=assistant_message.message_id,
+            current_state=conversation.current_state,
+            current_step_index=step,
+            total_steps=total_steps,
+            quick_replies=quick_replies,
+            products=cards,
+        )
+    except Exception as e:
+        logger.warning(f"Chat products mid-flow reply skipped: {e}")
+        return None
 
 
 @router.post("", response_model=ChatResponse)
@@ -103,7 +203,7 @@ async def chat(
             # Construct standard ChatResponse (flat structure, not nested Message)
             import uuid
 
-            return ChatResponse(
+            chat_response = ChatResponse(
                 conversation_id=conversation.conversation_id,
                 message_id=str(uuid.uuid4()),
                 answer="Our automated assistant is temporarily paused. Please contact support or try again later.",
@@ -111,6 +211,13 @@ async def chat(
                 sources=[],
                 suggested_actions=[],
             )
+            return _attach_chat_products(chat_response, config, request.query, "paused")
+
+        # S3 chat products asked for mid-qualification: show the cards and repeat the
+        # pending question instead of letting the state machine record the request as an answer
+        product_reply = _product_request_reply(conversation, config, request.query, total_steps)
+        if product_reply is not None:
+            return product_reply
 
         # ============================================================
         # STATE MACHINE PROCESSING - Route based on tenant plan
@@ -258,7 +365,7 @@ async def chat(
                 sources=sources,
             )
 
-            return ChatResponse(
+            chat_response = ChatResponse(
                 answer=answer,
                 conversation_id=conversation.conversation_id,
                 message_id=assistant_message.message_id,
@@ -273,6 +380,7 @@ async def chat(
                 s3_max_lead_output=state_result.s3_max_lead_output,
                 estimated_progress=state_result.estimated_progress,
             )
+            return _attach_chat_products(chat_response, config, request.query, state_result.action)
 
         elif config.plan == Plan.S3_MAPPING:
             logger.info(f"Using S3 Mapping state machine for tenant plan: {config.plan}")
@@ -369,7 +477,7 @@ async def chat(
                 s3_mapping_suggested_actions.append("chat_ended")
 
             # Build and return response immediately
-            return ChatResponse(
+            chat_response = ChatResponse(
                 conversation_id=conversation.conversation_id,
                 message_id=assistant_message.message_id,
                 answer=answer,
@@ -384,6 +492,7 @@ async def chat(
                 estimated_progress=None,
                 suggested_actions=s3_mapping_suggested_actions,
             )
+            return _attach_chat_products(chat_response, config, request.query, state_result.action)
 
         else:
             # S1 (default)
@@ -692,7 +801,7 @@ async def chat(
             sources=sources,
         )
 
-        return ChatResponse(
+        chat_response = ChatResponse(
             answer=answer,
             conversation_id=conversation.conversation_id,
             message_id=assistant_message.message_id,
@@ -711,6 +820,7 @@ async def chat(
                 state_result, "conversational_transition", None
             ),
         )
+        return _attach_chat_products(chat_response, config, request.query, state_result.action)
 
     except HTTPException:
         raise
