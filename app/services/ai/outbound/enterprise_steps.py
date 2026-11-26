@@ -155,12 +155,13 @@ class MultiStepPlanningStep(PipelineStep):
 # ── 4. SAFETY GUARDRAILS STEP ─────────────────────────────────────────
 
 class GuardrailsValidationStep(PipelineStep):
-    """Enforces safety loops, limits repeated tool calls, and cleans hallucinations."""
+    """Clean the reply (unauthorised offers, formatting, links, length) before it is stored and sent."""
 
     async def execute(self, session: OutboundAISession) -> None:
-        if not session.final_reply:
+        if not session.final_reply or session.skip_llm:
             return
 
-        # 1. Clean potential hallucinated promise strings
+        from app.services.ai.outbound.response_validator import response_validator
+
         cleaned = ai_guardrails.clean_hallucinated_offers(session, session.final_reply)
-        session.final_reply = cleaned
+        session.final_reply = response_validator.validate_response(session, cleaned)

@@ -98,6 +98,27 @@ class OutboundConversation(BaseModel):
     response_count: int = 0  # Number of replies from AI
     token_usage_sum: int = 0  # Total tokens consumed in conversation
 
+    # Real usage accounting (from Bedrock usage reports)
+    tokens_input: int = 0
+    tokens_output: int = 0
+    tokens_cache_read: int = 0
+    tokens_cache_write: int = 0
+    tokens_embedding: int = 0
+    llm_calls: int = 0
+    cost_usd: float = 0.0
+    tool_counts: Dict[str, int] = Field(default_factory=dict)
+
+    # Lead snapshot (kept on the conversation so lists/analytics need one query)
+    lead_name: str = ""
+    lead_phone: str = ""
+    lead_status: str = "IN_PROGRESS"  # IN_PROGRESS | QUALIFIED | NOT_QUALIFIED | OPTED_OUT
+    lead_score: Optional[int] = None  # 0-100, from the agent's evaluation against the business criteria
+    lead_score_reason: str = ""
+    objections: List[str] = Field(default_factory=list)
+    handoff_requested: bool = False
+    customer_message_count: int = 0
+    last_customer_message: str = ""
+
 
 class OutboundAIMessage(BaseModel):
     """Individual message (user or assistant) in an OutboundConversation."""
@@ -156,6 +177,11 @@ class OutboundAgentSettings(BaseModel):
 
     tenant_id: str
     ai_name: str = "Sales Assistant"
+    # Prompt / Instructions written by the business. This is the primary instruction
+    # for the WhatsApp agent: role, conversation flow, what to ask, how to qualify.
+    agent_instructions: str = ""
+    # Legacy "Business summary / Sales Context". Used only as company context when
+    # agent_instructions is empty (existing tenants keep working until they update).
     business_summary: str = ""
     sales_tone: str = "Professional and helpful"  # "Professional", "Friendly", "Direct"
     conversation_style: str = "Informative and natural"

@@ -67,11 +67,18 @@ class OutboundToolRegistry:
         """List metadata for all registered tools."""
         return list(self._metadata.values())
 
-    def get_bedrock_tool_specs(self) -> List[Dict[str, Any]]:
-        """Format all enabled tool schemas for Bedrock converse API toolConfig."""
+    def get_bedrock_tool_specs(self, names: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """Format enabled tool schemas for Bedrock converse API toolConfig.
+
+        Args:
+            names: If given, only these tools are included (an empty list means no tools).
+        """
+        allowed = set(names) if names is not None else None
         specs = []
         for name, meta in self._metadata.items():
             if not meta.enabled:
+                continue
+            if allowed is not None and name not in allowed:
                 continue
             specs.append({
                 "toolSpec": {

@@ -1,5 +1,6 @@
 """Tool Permission Manager and Tool Executor layer."""
 
+import inspect
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Tuple
@@ -40,7 +41,12 @@ class ToolPermissionManager:
         
         if category == "calendar" and not settings.enable_scheduling:
             return False, "Meeting scheduling is disabled for this agent."
-            
+
+        if category == "calendar":
+            from app.services.ai.outbound.tool_router import calendar_connected
+            if not calendar_connected(session.calendar_settings):
+                return False, "No calendar is connected. Ask for the customer's preferred time instead."
+
         if category == "catalog" and not settings.enable_product_search:
             return False, "Product search and catalog list operations are disabled."
             
@@ -86,6 +92,16 @@ class OutboundToolExecutor:
                 "success": False,
                 "error": f"Tool '{tool_name}' handler implementation is missing."
             }
+
+        # Drop arguments the handler doesn't accept (models sometimes add extra keys),
+        # which would otherwise raise TypeError on every attempt.
+        if not isinstance(arguments, dict):
+            arguments = {}
+        accepted = inspect.signature(handler).parameters
+        unknown = [k for k in arguments if k not in accepted or k == "session"]
+        if unknown:
+            logger.warning(f"[ToolExecutor] Ignoring unexpected arguments for '{tool_name}': {unknown}")
+            arguments = {k: v for k, v in arguments.items() if k not in unknown}
 
         # 3. Execute with error recovery and retry limits
         max_attempts = meta.retry_policy.get("max_attempts", 1)

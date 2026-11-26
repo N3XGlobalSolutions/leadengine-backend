@@ -31,6 +31,10 @@ class OutboundLLMService:
 
     def generate_query_embedding(self, text: str) -> List[float]:
         """Generate Titan V2 embedding vector for queries (1024 dimensions)."""
+        return self.embed(text)[0]
+
+    def embed(self, text: str) -> Tuple[List[float], int]:
+        """Return (embedding vector, input token count) for a query."""
         try:
             request_body = json.dumps({
                 "inputText": text,
@@ -46,7 +50,8 @@ class OutboundLLMService:
             )
 
             response_body = json.loads(response["body"].read())
-            return response_body["embedding"]
+            tokens = int(response_body.get("inputTextTokenCount") or 0)
+            return response_body["embedding"], tokens
         except Exception as e:
             logger.error(f"[OutboundLLM] Embedding generation failed: {e}")
             raise e
@@ -83,16 +88,12 @@ class OutboundLLMService:
                 )
         return self._client
 
-    def calculate_cost(self, prompt_tokens: int, completion_tokens: int) -> float:
-        """Calculate estimated USD cost of GLM-5 invocation.
-
-        Estimate:
-        - Input: $0.002 / 1,000 tokens
-        - Output: $0.008 / 1,000 tokens
-        """
-        input_cost = (prompt_tokens / 1000.0) * 0.002
-        output_cost = (completion_tokens / 1000.0) * 0.008
-        return input_cost + output_cost
+    def calculate_cost(self, prompt_tokens: int, completion_tokens: int,
+                       cache_read_tokens: int = 0, cache_write_tokens: int = 0) -> float:
+        """USD cost of one invocation at AWS Bedrock list prices (see pricing.py)."""
+        from app.services.outbound.pricing import llm_cost_usd
+        return llm_cost_usd(self.llm_model_id, prompt_tokens, completion_tokens,
+                            cache_read_tokens, cache_write_tokens)
 
     def converse(
         self,
@@ -151,17 +152,23 @@ class OutboundLLMService:
                 # Extract content
                 output_message = response["output"]["message"]
                 usage = response.get("usage", {})
-                prompt_tokens = usage.get("inputTokens", 0)
-                completion_tokens = usage.get("outputTokens", 0)
-                total_tokens = usage.get("totalTokens", 0)
+                prompt_tokens = int(usage.get("inputTokens", 0) or 0)
+                completion_tokens = int(usage.get("outputTokens", 0) or 0)
+                cache_read = int(usage.get("cacheReadInputTokens", 0) or 0)
+                cache_write = int(usage.get("cacheWriteInputTokens", 0) or 0)
+                total_tokens = int(usage.get("totalTokens", 0) or 0) or (
+                    prompt_tokens + completion_tokens + cache_read + cache_write
+                )
 
                 token_usage = {
                     "prompt": prompt_tokens,
                     "completion": completion_tokens,
+                    "cache_read": cache_read,
+                    "cache_write": cache_write,
                     "total": total_tokens
                 }
 
-                cost = self.calculate_cost(prompt_tokens, completion_tokens)
+                cost = self.calculate_cost(prompt_tokens, completion_tokens, cache_read, cache_write)
                 
                 logger.debug(
                     f"[OutboundLLM] Successfully generated response in {latency:.2f}s. "

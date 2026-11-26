@@ -20,7 +20,12 @@ class OutboundRAGService:
         self.collection_name = settings.EFFECTIVE_QDRANT_COLLECTION
 
     def search(
-        self, query: str, tenant_id: str, limit: int = 5, min_score: float = 0.3
+        self,
+        query: str,
+        tenant_id: str,
+        limit: int = 5,
+        min_score: float = 0.25,
+        usage: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """Search company documents in Qdrant, strictly filtered by tenant_id.
 
@@ -28,7 +33,10 @@ class OutboundRAGService:
             query: User's natural language question
             tenant_id: Organization ID for isolation filtering
             limit: Maximum document chunks to retrieve
-            min_score: Relevance threshold for grounding safety
+            min_score: Relevance threshold. Titan V2 cosine scores for a short chat
+                question against document chunks are typically 0.25-0.5, so 0.25
+                keeps real matches (0.35 was dropping them).
+            usage: Optional dict; embedding tokens are added to usage["embedding"].
 
         Returns:
             List of matching dictionaries:
@@ -40,7 +48,9 @@ class OutboundRAGService:
             logger.info(f"[OutboundRAG] Searching knowledge for tenant {tenant_id}: '{query}'")
             
             # Generate query vector using isolated LLM service
-            query_vector = outbound_llm_service.generate_query_embedding(query)
+            query_vector, embed_tokens = outbound_llm_service.embed(query)
+            if usage is not None:
+                usage["embedding"] = int(usage.get("embedding", 0)) + embed_tokens
 
             # Query Qdrant with tenant filter
             search_result = self.qdrant_client.query_points(
@@ -69,7 +79,8 @@ class OutboundRAGService:
                     "score": score,
                 })
 
-            logger.info(f"[OutboundRAG] Found {len(results)} relevant chunks (Threshold: {min_score})")
+            top = max((getattr(h, "score", 0.0) for h in search_result.points), default=0.0)
+            logger.info(f"[OutboundRAG] Found {len(results)} relevant chunks (Threshold: {min_score}, top score: {top:.3f})")
             return results
 
         except Exception as e:

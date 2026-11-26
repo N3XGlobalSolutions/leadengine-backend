@@ -23,7 +23,9 @@ class MessageStatus(str, Enum):
     SENDING = "SENDING"
     SENT = "SENT"
     DELIVERED = "DELIVERED"
+    READ = "READ"
     FAILED = "FAILED"
+    SKIPPED = "SKIPPED"  # not messaged (e.g. the number opted out)
 
 
 class OutboundLead(BaseModel):
@@ -41,6 +43,9 @@ class OutboundLead(BaseModel):
     retry_count: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     sent_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    read_at: Optional[datetime] = None
+    replied_at: Optional[datetime] = None
 
 
 class OutboundLeadCreate(BaseModel):

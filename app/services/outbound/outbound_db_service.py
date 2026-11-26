@@ -131,6 +131,7 @@ class OutboundDBService:
             return OutboundAgentSettings(
                 tenant_id=tenant_id,
                 ai_name=item.get("ai_name", "Sales Assistant"),
+                agent_instructions=item.get("agent_instructions", ""),
                 business_summary=item.get("business_summary", ""),
                 sales_tone=item.get("sales_tone", "Professional and helpful"),
                 conversation_style=item.get("conversation_style", "Informative and natural"),
@@ -155,6 +156,7 @@ class OutboundDBService:
             "SK": sk,
             "tenant_id": settings.tenant_id,
             "ai_name": settings.ai_name,
+            "agent_instructions": settings.agent_instructions,
             "business_summary": settings.business_summary,
             "sales_tone": settings.sales_tone,
             "conversation_style": settings.conversation_style,
@@ -349,7 +351,11 @@ class OutboundDBService:
         item = res.get("Item")
         if not item:
             return None
-            
+        return self._item_to_conversation(item)
+
+    @staticmethod
+    def _item_to_conversation(item: Dict[str, Any]) -> OutboundConversation:
+        score = item.get("lead_score")
         return OutboundConversation(
             conversation_id=item["conversation_id"],
             tenant_id=item["tenant_id"],
@@ -363,6 +369,23 @@ class OutboundDBService:
             response_time_sum=float(item.get("response_time_sum", 0.0)),
             response_count=int(item.get("response_count", 0)),
             token_usage_sum=int(item.get("token_usage_sum", 0)),
+            tokens_input=int(item.get("tokens_input", 0)),
+            tokens_output=int(item.get("tokens_output", 0)),
+            tokens_cache_read=int(item.get("tokens_cache_read", 0)),
+            tokens_cache_write=int(item.get("tokens_cache_write", 0)),
+            tokens_embedding=int(item.get("tokens_embedding", 0)),
+            llm_calls=int(item.get("llm_calls", 0)),
+            cost_usd=float(item.get("cost_usd", 0.0)),
+            tool_counts={k: int(v) for k, v in (item.get("tool_counts") or {}).items()},
+            lead_name=item.get("lead_name", "") or "",
+            lead_phone=item.get("lead_phone", "") or "",
+            lead_status=item.get("lead_status", "IN_PROGRESS") or "IN_PROGRESS",
+            lead_score=int(score) if score is not None else None,
+            lead_score_reason=item.get("lead_score_reason", "") or "",
+            objections=list(item.get("objections") or []),
+            handoff_requested=bool(item.get("handoff_requested", False)),
+            customer_message_count=int(item.get("customer_message_count", 0)),
+            last_customer_message=item.get("last_customer_message", "") or "",
         )
 
     def save_conversation(self, conversation: OutboundConversation) -> OutboundConversation:
@@ -388,42 +411,134 @@ class OutboundDBService:
             "response_time_sum": _to_decimal(conversation.response_time_sum),
             "response_count": conversation.response_count,
             "token_usage_sum": conversation.token_usage_sum,
+            "tokens_input": conversation.tokens_input,
+            "tokens_output": conversation.tokens_output,
+            "tokens_cache_read": conversation.tokens_cache_read,
+            "tokens_cache_write": conversation.tokens_cache_write,
+            "tokens_embedding": conversation.tokens_embedding,
+            "llm_calls": conversation.llm_calls,
+            "cost_usd": _to_decimal(round(conversation.cost_usd, 8)),
+            "tool_counts": conversation.tool_counts,
+            "lead_name": conversation.lead_name,
+            "lead_phone": conversation.lead_phone,
+            "lead_status": conversation.lead_status,
+            "lead_score": conversation.lead_score,
+            "lead_score_reason": conversation.lead_score_reason,
+            "objections": conversation.objections,
+            "handoff_requested": conversation.handoff_requested,
+            "customer_message_count": conversation.customer_message_count,
+            "last_customer_message": conversation.last_customer_message[:300],
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         table.put_item(Item=item)
         return conversation
 
     def list_tenant_conversations(self, tenant_id: str) -> List[OutboundConversation]:
-        """List conversations for a tenant ordered by last_message_at desc."""
+        """List all conversations for a tenant ordered by last_message_at desc."""
+        table = get_dynamodb_table()
+        query = {
+            "IndexName": "GSI1",
+            "KeyConditionExpression": "GSI1PK = :pk",
+            "ExpressionAttributeValues": {":pk": f"TENANT#{tenant_id}#OUTBOUND_CONVS"},
+            "ScanIndexForward": False,  # newest first
+        }
+        res = table.query(**query)
+        items = res.get("Items", [])
+        while "LastEvaluatedKey" in res:
+            res = table.query(**query, ExclusiveStartKey=res["LastEvaluatedKey"])
+            items.extend(res.get("Items", []))
+        return [self._item_to_conversation(item) for item in items]
+
+    # ── DAILY USAGE COUNTERS ──────────────────────────────────────────
+
+    def record_daily_usage(self, tenant_id: str, day: str, deltas: Dict[str, Any]) -> None:
+        """Atomically add usage deltas (tokens, calls, cost) to the tenant's counter for `day` (YYYY-MM-DD)."""
+        clean = {k: v for k, v in deltas.items() if v}
+        if not clean:
+            return
+        table = get_dynamodb_table()
+        names, values, parts = {}, {}, []
+        for i, (key, value) in enumerate(clean.items()):
+            names[f"#k{i}"] = key
+            values[f":v{i}"] = Decimal(str(value)) if isinstance(value, float) else value
+            parts.append(f"#k{i} :v{i}")
+        names["#day"] = "day"
+        values[":day"] = day
+        table.update_item(
+            Key={"PK": f"OB_USAGE#{tenant_id}", "SK": f"DAY#{day}"},
+            UpdateExpression="ADD " + ", ".join(parts) + " SET #day = :day",
+            ExpressionAttributeNames=names,
+            ExpressionAttributeValues=values,
+        )
+
+    def get_daily_usage(self, tenant_id: str, since_day: str) -> List[Dict[str, Any]]:
+        """Daily usage counters from `since_day` (YYYY-MM-DD) onwards, oldest first."""
         table = get_dynamodb_table()
         res = table.query(
-            IndexName="GSI1",
-            KeyConditionExpression="GSI1PK = :pk",
-            ExpressionAttributeValues={
-                ":pk": f"TENANT#{tenant_id}#OUTBOUND_CONVS",
-            },
-            ScanIndexForward=False  # Descending order
+            KeyConditionExpression=Key("PK").eq(f"OB_USAGE#{tenant_id}") & Key("SK").gte(f"DAY#{since_day}"),
+            ScanIndexForward=True,
         )
-        
-        conversations = []
-        for item in res.get("Items", []):
-            conversations.append(
-                OutboundConversation(
-                    conversation_id=item["conversation_id"],
-                    tenant_id=item["tenant_id"],
-                    lead_id=item["lead_id"],
-                    campaign_id=item["campaign_id"],
-                    started_at=datetime.fromisoformat(item["started_at"]),
-                    last_message_at=datetime.fromisoformat(item["last_message_at"]),
-                    stage=ConversationStage.from_value(item.get("stage", "NEW")),
-                    status=item.get("status", "ACTIVE"),
-                    message_count=int(item.get("message_count", 0)),
-                    response_time_sum=float(item.get("response_time_sum", 0.0)),
-                    response_count=int(item.get("response_count", 0)),
-                    token_usage_sum=int(item.get("token_usage_sum", 0)),
-                )
+        return [_from_decimal(item) for item in res.get("Items", [])]
+
+    # ── OPT-OUT REGISTRY ──────────────────────────────────────────────
+
+    def set_opt_out(self, tenant_id: str, phone: str, opted_out: bool) -> None:
+        """Record (or clear) that a phone number asked not to receive campaign messages."""
+        table = get_dynamodb_table()
+        key = {"PK": f"OB_OPTOUT#{tenant_id}", "SK": f"PHONE#{phone}"}
+        if opted_out:
+            table.put_item(Item={**key, "phone": phone, "created_at": datetime.now(timezone.utc).isoformat()})
+        else:
+            table.delete_item(Key=key)
+
+    def is_opted_out(self, tenant_id: str, phone: str) -> bool:
+        table = get_dynamodb_table()
+        res = table.get_item(Key={"PK": f"OB_OPTOUT#{tenant_id}", "SK": f"PHONE#{phone}"})
+        return "Item" in res
+
+    # ── WHATSAPP MESSAGE DELIVERY TRACKING ────────────────────────────
+
+    _STATUS_RANK = {"sent": 1, "delivered": 2, "read": 3, "failed": 4}
+
+    def save_wamid_link(self, wamid: str, data: Dict[str, Any]) -> None:
+        """Remember which campaign message a WhatsApp message id belongs to (for status webhooks)."""
+        table = get_dynamodb_table()
+        table.put_item(Item={
+            "PK": f"OB_WAMID#{wamid}",
+            "SK": "LINK",
+            "status": "sent",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": int(time.time()) + 30 * 86400,
+            **data,
+        })
+
+    def advance_wamid_status(self, wamid: str, new_status: str) -> Optional[Dict[str, Any]]:
+        """Move a tracked message to a later status. Returns the link (with the previous status
+        under "previous_status") if it changed, or None if untracked / not a forward move."""
+        rank = self._STATUS_RANK.get(new_status)
+        if not rank:
+            return None
+        table = get_dynamodb_table()
+        try:
+            res = table.update_item(
+                Key={"PK": f"OB_WAMID#{wamid}", "SK": "LINK"},
+                UpdateExpression="SET #s = :new, #r = :rank, updated_at = :now",
+                ConditionExpression="attribute_exists(PK) AND (attribute_not_exists(#r) OR #r < :rank)",
+                ExpressionAttributeNames={"#s": "status", "#r": "status_rank"},
+                ExpressionAttributeValues={
+                    ":new": new_status,
+                    ":rank": rank,
+                    ":now": datetime.now(timezone.utc).isoformat(),
+                },
+                ReturnValues="ALL_OLD",
             )
-        return conversations
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return None
+            raise
+        old = _from_decimal(res.get("Attributes") or {})
+        old["previous_status"] = old.get("status", "sent")
+        return old
 
     def add_message(self, message: OutboundAIMessage) -> OutboundAIMessage:
         """Add chat message into conversation thread."""
@@ -448,8 +563,10 @@ class OutboundDBService:
         return message
 
     def get_conversation_messages(self, conversation_id: str, limit: int = 50) -> List[OutboundAIMessage]:
-        """Fetch chat history for conversation."""
+        """Fetch the most recent `limit` messages of a conversation, oldest first."""
         table = get_dynamodb_table()
+        # Query newest-first so `Limit` keeps the latest messages (an ascending query
+        # with a limit would return the oldest ones), then restore chronological order.
         res = table.query(
             KeyConditionExpression="PK = :pk AND begins_with(SK, :sk)",
             ExpressionAttributeValues={
@@ -457,11 +574,11 @@ class OutboundDBService:
                 ":sk": "MSG#",
             },
             Limit=limit,
-            ScanIndexForward=True  # Chronological order
+            ScanIndexForward=False,
         )
-        
+
         messages = []
-        for item in res.get("Items", []):
+        for item in reversed(res.get("Items", [])):
             messages.append(
                 OutboundAIMessage(
                     message_id=item["message_id"],

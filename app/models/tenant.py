@@ -184,6 +184,8 @@ class TenantConfig(BaseModel):
     whatsapp_enabled: bool = False
     whatsapp_access_token: Optional[str] = None
     whatsapp_phone_number_id: Optional[str] = None
+    # WhatsApp Business Account (WABA / "Messaging account") ID: needed to list approved templates
+    whatsapp_business_account_id: Optional[str] = None
 
     #Clients domain for Widget Integration
     client_domain: Optional[str] = Field(

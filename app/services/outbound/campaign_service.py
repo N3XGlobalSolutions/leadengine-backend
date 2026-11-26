@@ -50,15 +50,22 @@ class CampaignService:
             tenant_id=item["tenant_id"],
             name=item["name"],
             status=CampaignStatus(item.get("status", "DRAFT")),
+            message_type=item.get("message_type", "text") or "text",
             message_template=item.get("message_template", ""),
+            template_name=item.get("template_name"),
+            template_language=item.get("template_language"),
+            template_body=item.get("template_body", "") or "",
+            template_params=list(item.get("template_params") or []),
             batch_size=int(item.get("batch_size", 10)),
             message_delay_seconds=int(item.get("message_delay_seconds", 5)),
             batch_delay_seconds=int(item.get("batch_delay_seconds", 60)),
             total_leads=int(item.get("total_leads", 0)),
-            sent_count=int(item.get("sent_count", 0)),
+            sent_count=max(0, int(item.get("sent_count", 0))),
             failed_count=int(item.get("failed_count", 0)),
             delivered_count=int(item.get("delivered_count", 0)),
+            read_count=int(item.get("read_count", 0)),
             response_count=int(item.get("response_count", 0)),
+            skipped_count=int(item.get("skipped_count", 0)),
             created_at=_parse_dt(item.get("created_at")),
             updated_at=_parse_dt(item.get("updated_at")),
             started_at=_parse_dt(item.get("started_at")),
@@ -86,7 +93,12 @@ class CampaignService:
             "tenant_id": tenant_id,
             "name": data.name,
             "status": CampaignStatus.DRAFT.value,
+            "message_type": data.message_type,
             "message_template": data.message_template,
+            "template_name": data.template_name,
+            "template_language": data.template_language,
+            "template_body": data.template_body,
+            "template_params": data.template_params,
             "batch_size": data.batch_size,
             "message_delay_seconds": data.message_delay_seconds,
             "batch_delay_seconds": data.batch_delay_seconds,
@@ -94,7 +106,9 @@ class CampaignService:
             "sent_count": 0,
             "failed_count": 0,
             "delivered_count": 0,
+            "read_count": 0,
             "response_count": 0,
+            "skipped_count": 0,
             "created_at": now,
             "updated_at": now,
             "created_by": user_name or user_id,
@@ -161,6 +175,10 @@ class CampaignService:
             updates["name"] = data.name
         if data.message_template is not None:
             updates["message_template"] = data.message_template
+        for field in ("message_type", "template_name", "template_language", "template_body", "template_params"):
+            value = getattr(data, field)
+            if value is not None:
+                updates[field] = value
         if data.batch_size is not None:
             updates["batch_size"] = data.batch_size
         if data.message_delay_seconds is not None:
@@ -299,8 +317,13 @@ class CampaignService:
         total_leads = sum(c.total_leads for c in campaigns)
         sent = sum(c.sent_count for c in campaigns)
         failed = sum(c.failed_count for c in campaigns)
+        delivered = sum(c.delivered_count for c in campaigns)
+        read = sum(c.read_count for c in campaigns)
         responses = sum(c.response_count for c in campaigns)
-        response_rate = (responses / sent * 100) if sent > 0 else 0.0
+        skipped = sum(c.skipped_count for c in campaigns)
+
+        def pct(part: int, whole: int) -> float:
+            return round(part / whole * 100, 1) if whole > 0 else 0.0
 
         return CampaignSummaryStats(
             total_campaigns=total,
@@ -308,7 +331,13 @@ class CampaignService:
             total_leads=total_leads,
             messages_sent=sent,
             messages_failed=failed,
-            response_rate=round(response_rate, 2),
+            messages_delivered=delivered,
+            messages_read=read,
+            replies=responses,
+            skipped_opted_out=skipped,
+            delivery_rate=pct(delivered, sent),
+            read_rate=pct(read, delivered),
+            response_rate=pct(responses, sent),
         )
 
     def update_lead_count(self, campaign_id: str, count: int) -> None:

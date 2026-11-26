@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import phonenumbers
+from botocore.exceptions import ClientError
 
 from app.core.dynamodb import (
     get_dynamodb_table,
@@ -425,14 +426,59 @@ class OutboundLeadService:
                 deleted += 1
         return deleted
 
+    def claim_lead_for_sending(self, campaign_id: str, lead_id: str) -> bool:
+        """Atomically move a lead PENDING -> SENDING. False if another run already took it.
+
+        Guarantees a lead is messaged at most once even if two executors overlap
+        (e.g. pause/resume while a batch is in flight, or a redelivered SQS message).
+        """
+        table = get_dynamodb_table()
+        try:
+            table.update_item(
+                Key={"PK": f"OB_CAMPAIGN#{campaign_id}", "SK": f"LEAD#{lead_id}"},
+                UpdateExpression="SET #ms = :sending",
+                ConditionExpression="#ms = :pending",
+                ExpressionAttributeNames={"#ms": "message_status"},
+                ExpressionAttributeValues={
+                    ":sending": MessageStatus.SENDING.value,
+                    ":pending": MessageStatus.PENDING.value,
+                },
+            )
+            return True
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
+            raise
+
+    def mark_replied(self, campaign_id: str, lead_id: str) -> bool:
+        """Record the lead's first reply. True only the first time (so reply counters count leads once)."""
+        table = get_dynamodb_table()
+        try:
+            table.update_item(
+                Key={"PK": f"OB_CAMPAIGN#{campaign_id}", "SK": f"LEAD#{lead_id}"},
+                UpdateExpression="SET replied_at = :now",
+                ConditionExpression="attribute_exists(PK) AND attribute_not_exists(replied_at)",
+                ExpressionAttributeValues={":now": datetime.now(timezone.utc).isoformat()},
+            )
+            return True
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
+            raise
+
     def update_lead_message_status(
         self, campaign_id: str, lead_id: str, status: MessageStatus, error_reason: str = None
     ) -> None:
         """Update the message delivery status on a lead."""
         table = get_dynamodb_table()
         updates = {"message_status": status.value}
+        now = datetime.now(timezone.utc).isoformat()
         if status == MessageStatus.SENT:
-            updates["sent_at"] = datetime.now(timezone.utc).isoformat()
+            updates["sent_at"] = now
+        elif status == MessageStatus.DELIVERED:
+            updates["delivered_at"] = now
+        elif status == MessageStatus.READ:
+            updates["read_at"] = now
         if error_reason:
             updates["error_reason"] = error_reason
 
@@ -504,7 +550,14 @@ class OutboundLeadService:
         if isinstance(sent_at, str):
             sent_at = datetime.fromisoformat(sent_at)
 
+        def _dt(key):
+            val = item.get(key)
+            return datetime.fromisoformat(val) if isinstance(val, str) else val
+
         return OutboundLead(
+            delivered_at=_dt("delivered_at"),
+            read_at=_dt("read_at"),
+            replied_at=_dt("replied_at"),
             lead_id=item["lead_id"],
             campaign_id=item["campaign_id"],
             tenant_id=item["tenant_id"],

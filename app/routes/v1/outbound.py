@@ -480,10 +480,13 @@ async def start_campaign(
             "Please pause or wait for it to complete before starting a new one.",
         )
 
-    # Validate campaign has leads and template
+    # Validate campaign has leads and a message to send
     if campaign.total_leads == 0:
         raise HTTPException(status_code=400, detail="Campaign has no leads. Upload leads first.")
-    if not campaign.message_template or not campaign.message_template.strip():
+    if campaign.message_type == "template":
+        if not campaign.template_name:
+            raise HTTPException(status_code=400, detail="Choose an approved WhatsApp template first.")
+    elif not campaign.message_template or not campaign.message_template.strip():
         raise HTTPException(status_code=400, detail="Campaign has no message template. Set a template first.")
 
     try:
@@ -500,10 +503,15 @@ async def start_campaign(
         description=f"Campaign '{campaign.name}' started",
     ))
 
-    # Execute campaign in background
-    background_tasks.add_task(_run_campaign_async, campaign_id)
-
+    _dispatch_campaign(campaign_id, background_tasks)
     return updated
+
+
+def _dispatch_campaign(campaign_id: str, background_tasks: BackgroundTasks) -> None:
+    """Send via the SQS worker (production); run in-process only when no queue is configured."""
+    if not campaign_executor_service.start(campaign_id):
+        logger.warning(f"[Campaign] No outbound queue configured; running campaign {campaign_id} in-process.")
+        background_tasks.add_task(_run_campaign_async, campaign_id)
 
 
 def _run_campaign_async(campaign_id: str):
@@ -585,9 +593,7 @@ async def resume_campaign(
         description=f"Campaign '{campaign.name}' resumed",
     ))
 
-    # Resume execution in background
-    background_tasks.add_task(_run_campaign_async, campaign_id)
-
+    _dispatch_campaign(campaign_id, background_tasks)
     return updated
 
 
@@ -645,19 +651,60 @@ async def get_campaign_stats(
     total = campaign.total_leads
     sent = campaign.sent_count
     failed = campaign.failed_count
-    progress = (sent + failed) / total * 100 if total > 0 else 0
+    skipped = campaign.skipped_count
+    processed = sent + failed + skipped
+    progress = processed / total * 100 if total > 0 else 0
+
+    def pct(part: int, whole: int) -> float:
+        return round(part / whole * 100, 1) if whole > 0 else 0.0
+
+    # AI conversations started by this campaign (real lead outcomes and AI cost)
+    from app.services.outbound.outbound_db_service import outbound_db_service
+    from app.services.outbound.pricing import to_inr
+    convs = [c for c in outbound_db_service.list_tenant_conversations(tenant_id) if c.campaign_id == campaign_id]
+    ai_cost_usd = sum(c.cost_usd for c in convs)
 
     return {
         "campaign_id": campaign_id,
         "status": campaign.status.value,
+        "message_type": campaign.message_type,
         "total_leads": total,
         "sent": sent,
         "failed": failed,
+        "skipped": skipped,
         "delivered": campaign.delivered_count,
+        "read": campaign.read_count,
         "response_count": campaign.response_count,
-        "pending": max(0, total - sent - failed),
+        "pending": max(0, total - processed),
         "progress_percent": round(progress, 2),
+        "delivery_rate": pct(campaign.delivered_count, sent),
+        "read_rate": pct(campaign.read_count, campaign.delivered_count),
+        "response_rate": pct(campaign.response_count, sent),
+        "conversations": len(convs),
+        "qualified": sum(1 for c in convs if c.lead_status == "QUALIFIED"),
+        "not_qualified": sum(1 for c in convs if c.lead_status == "NOT_QUALIFIED"),
+        "opted_out": sum(1 for c in convs if c.lead_status == "OPTED_OUT"),
+        "handoffs": sum(1 for c in convs if c.handoff_requested),
+        "ai_tokens": sum(c.tokens_input + c.tokens_output + c.tokens_cache_read + c.tokens_cache_write for c in convs),
+        "ai_cost_usd": round(ai_cost_usd, 6),
+        "ai_cost_inr": round(to_inr(ai_cost_usd), 4),
     }
+
+
+@router.get("/{tenant_id}/whatsapp/templates")
+async def list_whatsapp_templates(
+    tenant_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+):
+    """Approved WhatsApp message templates for this client's WhatsApp Business Account."""
+    await validate_tenant_access(tenant_id, current_user)
+    from app.services import tenant_service
+    from app.services.outbound.whatsapp_sender import whatsapp_sender
+
+    tenant = tenant_service.get_tenant(tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return await whatsapp_sender.list_templates(tenant.config)
 
 
 @router.get("/{tenant_id}/campaigns/{campaign_id}/history", response_model=List[CampaignAuditLog])

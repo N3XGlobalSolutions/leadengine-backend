@@ -20,69 +20,59 @@ from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+# An actual discount promise: "20% off", "10 % discount", "a discount", "discounted price".
+_DISCOUNT_RE = re.compile(r"\b\d{1,3}\s?%\s*(?:off|discount)\b|\bdiscount(?:s|ed)?\b", re.IGNORECASE)
+
 
 # ── 1. INTENT & OBJECTION CLASSIFIER ──────────────────────────────────
 
+_INTENT_PATTERNS = [
+    (CustomerIntentType.LOST, r"\b(not interested|no longer interested|stop|unsubscribe|don'?t (message|contact)|remove me)\b"),
+    (CustomerIntentType.SCHEDULING, r"\b(call|meeting|meet|schedule|appointment|demo|book|slot|reschedule)\b"),
+    (CustomerIntentType.NEGOTIATION, r"\b(discount|negotiat\w*|best price|lower (the )?price|any offers?)\b"),
+    (CustomerIntentType.PRICING, r"\b(price|prices|pricing|cost|costs|fees?|how much|charges?|rates?)\b"),
+    (CustomerIntentType.BUYING, r"\b(buy|purchase|order|sign ?up|enrol+|join|register|get started|proceed)\b"),
+    (CustomerIntentType.COMPARISON, r"\b(compare|comparison|vs\.?|versus|better than|difference between|alternative)\b"),
+    (CustomerIntentType.SUPPORT_QUESTION, r"\b(issue|problem|not working|error|complaint|refund)\b"),
+]
+
+_OBJECTION_PATTERNS = [
+    (ObjectionType.PRICE, r"\b(expensive|too (costly|much|high)|can'?t afford|cheaper|out of (my )?budget)\b"),
+    (ObjectionType.TRUST, r"\b(scam|fake|legit|trust|genuine|reviews?)\b"),
+    (ObjectionType.COMPETITOR, r"\b(competitor|already (using|have)|another (company|provider)|other (company|provider))\b"),
+    (ObjectionType.TIMING, r"\b(later|not now|next (week|month|year)|busy|no time)\b"),
+    (ObjectionType.NEED, r"\b(don'?t need|no need|not needed|not required)\b"),
+    (ObjectionType.AUTHORITY, r"\b(my (boss|manager|parents?|husband|wife)|need approval|team decides|ask my)\b"),
+]
+
+
 class IntentClassifier:
-    """Uses GLM-5 converse to classify message intent and objections in JSON."""
+    """Keyword-based intent and objection tagging for analytics.
+
+    This used to make a separate LLM call on every customer message. The reply
+    itself is driven by the business instructions, so a cheap heuristic is enough
+    here and saves one model call (and its tokens) per message.
+    """
 
     async def classify(self, session: OutboundAISession) -> Tuple[CustomerIntentType, float, Optional[ObjectionType]]:
         """Classify customer message text into SaaS intents and objections."""
-        try:
-            # Fallback for simple greeting / help triggers to save API calls
-            text = session.incoming_text.lower().strip()
-            if text in ["hi", "hello", "hey", "good morning", "good afternoon"]:
-                return CustomerIntentType.CURIOUS, 0.95, None
+        text = (session.incoming_text or "").lower().strip()
 
-            system_prompt = (
-                "You are an AI sales classifier. Analyze the customer's incoming message and return ONLY a JSON object containing:\n"
-                "- intent: Must be one of: BUYING, CURIOUS, PRICING, SUPPORT_QUESTION, COMPARISON, SCHEDULING, NEGOTIATION, COLD, WARM, HOT, LOST, RETURNING\n"
-                "- confidence: float value between 0.0 and 1.0\n"
-                "- objection: If an objection is detected, categorize it as one of: PRICE, TRUST, COMPETITOR, TIMING, NEED, AUTHORITY, FEATURE, IMPLEMENTATION, ROI. Otherwise return null.\n"
-                "\nReturn ONLY JSON, no conversational text."
-            )
+        intent = CustomerIntentType.CURIOUS
+        confidence = 0.5
+        for candidate, pattern in _INTENT_PATTERNS:
+            if re.search(pattern, text):
+                intent, confidence = candidate, 0.7
+                break
 
-            # Send current message context
-            prompt = f"Customer message: '{session.incoming_text}'"
-            messages = [{"role": "user", "content": [{"text": prompt}]}]
+        objection = None
+        for candidate, pattern in _OBJECTION_PATTERNS:
+            if re.search(pattern, text):
+                objection = candidate
+                break
 
-            output, _, _, _ = outbound_llm_service.converse(
-                messages=messages,
-                system_prompt=system_prompt,
-                temperature=0.0,  # Strict classification
-                max_tokens=150
-            )
-
-            response_text = output.get("content", [{}])[0].get("text", "{}").strip()
-            # Clean possible markdown wrap
-            response_text = re.sub(r"```json\s*", "", response_text)
-            response_text = re.sub(r"\s*```", "", response_text)
-            
-            data = json.loads(response_text)
-            
-            intent_val = data.get("intent", "CURIOUS")
-            confidence = float(data.get("confidence", 0.8))
-            objection_val = data.get("objection")
-
-            # Match Enums safely
-            try:
-                intent = CustomerIntentType(intent_val)
-            except ValueError:
-                intent = CustomerIntentType.CURIOUS
-
-            objection = None
-            if objection_val:
-                try:
-                    objection = ObjectionType(objection_val)
-                except ValueError:
-                    objection = None
-
-            logger.info(f"[IntentClassifier] Detected Intent: {intent} (Confidence: {confidence:.2f}) | Objection: {objection}")
-            return intent, confidence, objection
-
-        except Exception as e:
-            logger.warning(f"[IntentClassifier] Classification failed: {e}. Using fallback.")
-            return CustomerIntentType.CURIOUS, 0.5, None
+        logger.info(f"[IntentClassifier] Intent: {intent.value} | Objection: {objection.value if objection else None}")
+        return intent, confidence, objection
 
 
 # ── 2. LEAD QUALIFICATION ENGINE ──────────────────────────────────────
@@ -301,7 +291,7 @@ class AIGuardrails:
         has_sent_brochure = "send_brochure" in past_calls
         
         # Rule 2: Prevent duplicate calendar bookings if already scheduled
-        is_already_booked = session.memory.meeting_status == "BOOKED"
+        is_already_booked = bool(session.memory and session.memory.meeting_status == "BOOKED")
 
         for spec in tool_specs:
             t_name = spec["toolSpec"]["name"]
@@ -319,17 +309,31 @@ class AIGuardrails:
         return filtered
 
     def clean_hallucinated_offers(self, session: OutboundAISession, text: str) -> str:
-        """Strip promises/offers of discounts or tools not supported in active catalog."""
-        # Simple safeguard for illegal discount terms
-        text_lower = text.lower()
-        if "discount" in text_lower or "off" in text_lower:
-            # Confirm if discount was approved (by default, outbound agents don't offer unauthorized discounts)
-            logger.warning("[Guardrails] Sanitizing potential hallucinated discount promise.")
-            # Remove direct discount promises
-            text = re.sub(r"(?i)\b\d+%\s*(off|discount)?\b", "", text)
-            text = re.sub(r"(?i)\bdiscount\b", "", text)
-            
-        return text
+        """Remove discount promises the business never authorised.
+
+        Only sentences that actually promise a discount are removed (previously any
+        word containing "off", like "offer" or "office", triggered scrubbing). If the
+        business instructions or the knowledge base mention discounts, the agent is
+        allowed to talk about them.
+        """
+        if not text or not _DISCOUNT_RE.search(text):
+            return text
+
+        settings = session.agent_settings
+        authorised_sources = [settings.agent_instructions if settings else ""]
+        authorised_sources += [item.get("text", "") for item in session.retrieved_knowledge]
+        if any(_DISCOUNT_RE.search(src or "") for src in authorised_sources):
+            return text
+
+        logger.warning("[Guardrails] Removing unauthorised discount promise from reply.")
+        kept_lines = []
+        for line in text.split("\n"):
+            sentences = re.split(r"(?<=[.!?])\s+", line)
+            kept = [s for s in sentences if not _DISCOUNT_RE.search(s)]
+            if kept or not line.strip():
+                kept_lines.append(" ".join(kept))
+        cleaned = "\n".join(kept_lines).strip()
+        return cleaned or "Our team will share the latest pricing and offers with you."
 
 
 # Singletons

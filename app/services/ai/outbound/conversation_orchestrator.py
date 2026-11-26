@@ -9,43 +9,51 @@ from app.services.ai.outbound.conversation_pipeline import (
     LoadConversationStep,
     LoadMemoryStep,
     LoadTenantSettingsStep,
-    LoadProductsStep,
+    OptOutStep,
+    PrefetchKnowledgeStep,
     BuildPromptStep,
     RunLLMStep,
+    CaptureLeadDetailsStep,
+    ApplyAgentStateStep,
     ToolExecutionStep,
     MemoryUpdateStep,
     PersistConversationStep,
     SendReplyStep,
 )
-from app.services.ai.outbound.enterprise_steps import (
-    AnalyzeIntentAndStrategyStep,
-    LeadQualificationStep,
-    MultiStepPlanningStep,
-    GuardrailsValidationStep,
-)
+from app.services.ai.outbound.enterprise_steps import GuardrailsValidationStep
 from app.services.outbound.outbound_db_service import outbound_db_service
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+# The lock must outlive a full turn (LLM call + possible tool hop), otherwise a
+# second message could run concurrently and both replies would interleave.
+LOCK_TTL_SECONDS = 90
+LOCK_ATTEMPTS = 8
+LOCK_RETRY_SECONDS = 2.0
 
 
 class OutboundConversationOrchestrator:
     """Orchestrates outbound session lifecycles, locks, and pipeline execution."""
 
     def __init__(self):
-        # Assemble pipeline steps in order
+        # Assemble pipeline steps in order. Persist and Send always run, so even if
+        # an earlier step fails the message is saved and the customer gets a reply.
         self.pipeline = ConversationPipeline([
             LoadSessionStep(),
             LoadConversationStep(),
             LoadMemoryStep(),
             LoadTenantSettingsStep(),
-            LoadProductsStep(),
-            AnalyzeIntentAndStrategyStep(),
-            LeadQualificationStep(),
-            MultiStepPlanningStep(),
+            OptOutStep(),
+            # The keyword-guess "enterprise" steps (BANT score, decision-maker
+            # probability, risk/momentum) were removed: lead status and score now
+            # come from the agent's evaluation against the business instructions.
+            PrefetchKnowledgeStep(),
             BuildPromptStep(),
-            RunLLMStep(),
+            RunLLMStep(),                     # single LLM call unless a tool is needed
             GuardrailsValidationStep(),
+            CaptureLeadDetailsStep(),         # only if the model skipped the state line
+            ApplyAgentStateStep(),
             ToolExecutionStep(),
             MemoryUpdateStep(),
             PersistConversationStep(),
@@ -76,18 +84,23 @@ class OutboundConversationOrchestrator:
         Returns:
             bool: True if processed successfully, False if skipped/locked
         """
-        # 1. Acquire distributed lock (retrying up to 3 times)
+        # 1. Acquire distributed lock. If the customer sends several messages quickly,
+        # wait for the previous turn to finish instead of dropping the message.
         lock_acquired = False
-        for attempt in range(1, 4):
-            if outbound_db_service.acquire_lock(conversation_id, ttl_seconds=30):
+        for attempt in range(1, LOCK_ATTEMPTS + 1):
+            if outbound_db_service.acquire_lock(conversation_id, ttl_seconds=LOCK_TTL_SECONDS):
                 lock_acquired = True
                 break
-            logger.warning(f"[Orchestrator] Lock acquisition failed for conversation {conversation_id} (Attempt {attempt}/3). Retrying...")
-            await asyncio.sleep(1.0)
+            logger.warning(f"[Orchestrator] Conversation {conversation_id} is busy (Attempt {attempt}/{LOCK_ATTEMPTS}). Waiting...")
+            await asyncio.sleep(LOCK_RETRY_SECONDS)
 
         if not lock_acquired:
-            logger.error(f"[Orchestrator] Could not acquire lock for conversation {conversation_id}. Aborting.")
-            return False
+            # Most likely a stale lock from a crashed/timed-out run. Answering without
+            # the lock is better than silently dropping the customer's message.
+            logger.error(
+                f"[Orchestrator] Could not acquire lock for conversation {conversation_id} after "
+                f"{LOCK_ATTEMPTS} attempts. Processing message {message_id} without the lock."
+            )
 
         try:
             # 2. Instantiate Session context
@@ -110,9 +123,10 @@ class OutboundConversationOrchestrator:
             return False
 
         finally:
-            # 4. Release distributed lock
-            outbound_db_service.release_lock(conversation_id)
-            logger.debug(f"[Orchestrator] Released lock for conversation {conversation_id}")
+            # 4. Release the lock only if we hold it (never delete another run's lock)
+            if lock_acquired:
+                outbound_db_service.release_lock(conversation_id)
+                logger.debug(f"[Orchestrator] Released lock for conversation {conversation_id}")
 
 
 # Singleton orchestrator instance
